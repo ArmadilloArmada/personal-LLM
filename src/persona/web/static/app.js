@@ -604,6 +604,56 @@ docUpload?.addEventListener("change", async () => {
   loadDocs();
 });
 
+// --- Status & settings ---
+
+const statusBanner = $("#status-banner");
+const settingsDialog = $("#settings-dialog");
+const settingsForm = $("#settings-form");
+const providerSelect = $("#provider-select");
+const providerStatus = $("#provider-status");
+
+async function loadAppStatus() {
+  const res = await fetch("/api/status");
+  const data = await res.json();
+  const info = data.provider_info || {};
+  const mode = data.provider || "demo";
+
+  statusBanner.hidden = false;
+  if (mode === "demo") {
+    statusBanner.className = "status-banner demo";
+    statusBanner.innerHTML =
+      "🎭 <strong>Demo mode</strong> — you're good to go! Chat, projects, and board all work. " +
+      "Click ⚙️ to connect Ollama or an API for full AI.";
+  } else {
+    statusBanner.className = "status-banner live";
+    statusBanner.innerHTML = `✨ <strong>${mode === "ollama" ? "Ollama" : "Cloud AI"}</strong> connected — full power enabled.`;
+  }
+
+  if (providerSelect) providerSelect.value = info.active === "demo" ? "demo" : (info.ollama_available ? "auto" : "demo");
+  if (providerStatus) {
+    providerStatus.textContent =
+      `Active: ${mode} | Ollama: ${info.ollama_available ? "yes" : "no"} | API key: ${info.openai_configured ? "yes" : "no"}`;
+  }
+}
+
+$("#settings-btn")?.addEventListener("click", () => {
+  loadAppStatus();
+  settingsDialog.showModal();
+});
+$("#cancel-settings")?.addEventListener("click", () => settingsDialog.close());
+
+settingsForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const provider = providerSelect.value;
+  await fetch("/api/settings/provider", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider }),
+  });
+  settingsDialog.close();
+  loadAppStatus();
+});
+
 // --- Events ---
 
 document.querySelectorAll(".mode-btn").forEach((btn) => {
@@ -626,6 +676,7 @@ input.addEventListener("keydown", (e) => {
 });
 
 setupVoiceInput();
+loadAppStatus();
 loadWorkspaces().then(() => {
   loadPersonas();
   loadProjects();

@@ -20,12 +20,42 @@ from persona.llm import get_provider
 from persona.memory import MemoryStore
 from persona.personas import get_persona, list_personas
 
+from persona.launcher import run_standalone
+
 app = typer.Typer(
     name="persona",
-    help="Persona — cartoon AI crew with specialized agents",
-    no_args_is_help=True,
+    help="Persona — cartoon AI crew (run `persona` to launch the app)",
+    no_args_is_help=False,
 )
 console = Console()
+
+
+@app.callback(invoke_without_command=True)
+def main(ctx: typer.Context) -> None:
+    """Launch Persona when run with no subcommand."""
+    if ctx.invoked_subcommand is None:
+        run_standalone()
+
+
+@app.command(name="app")
+def launch_app(
+    window: bool = typer.Option(False, "--window", "-w", help="Native window (pip install persona[desktop])"),
+    port: int | None = typer.Option(None, "--port", "-p", help="Port number"),
+) -> None:
+    """Launch the Persona standalone app."""
+    run_standalone(window=window, port=port)
+
+
+@app.command()
+def serve(
+    host: str | None = typer.Option(None, "--host", "-h"),
+    port: int | None = typer.Option(None, "--port", "-p"),
+) -> None:
+    """Start the web server only (no browser)."""
+    settings = get_settings()
+    host = host or settings.web_host
+    port = port or settings.web_port
+    uvicorn.run("persona.web.server:app", host=host, port=port, log_level="warning")
 
 
 def _settings_with_overrides(
@@ -47,31 +77,13 @@ def _settings_with_overrides(
 
 
 @app.command()
-def serve(
-    host: str | None = typer.Option(None, "--host", "-h"),
-    port: int | None = typer.Option(None, "--port", "-p"),
-) -> None:
-    """Launch the interactive Persona web app."""
-    settings = get_settings()
-    host = host or settings.web_host
-    port = port or settings.web_port
-    console.print(Panel.fit(
-        f"[bold]Persona Interactive App[/bold]\n"
-        f"Open [link=http://{host}:{port}]http://{host}:{port}[/link] in your browser\n"
-        f"[dim]Ctrl+C to stop[/dim]",
-        border_style="magenta",
-    ))
-    uvicorn.run("persona.web.server:app", host=host, port=port, reload=False)
-
-
-@app.command()
 def chat(
     message: str | None = typer.Argument(None, help="Single message (omit for interactive mode)"),
-    persona: str = typer.Option("byte", "--persona", "-P", help="Persona id: byte, sunny, nova, sketch, captain"),
-    provider: str | None = typer.Option(None, "--provider", "-p", help="ollama or openai"),
-    model: str | None = typer.Option(None, "--model", "-m", help="Model name"),
-    workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Working directory"),
-    session: str | None = typer.Option(None, "--session", "-s", help="Session name to resume"),
+    persona: str = typer.Option("byte", "--persona", "-P", help="Persona id"),
+    provider: str | None = typer.Option(None, "--provider", "-p"),
+    model: str | None = typer.Option(None, "--model", "-m"),
+    workspace: Path | None = typer.Option(None, "--workspace", "-w"),
+    session: str | None = typer.Option(None, "--session", "-s"),
 ) -> None:
     """Chat with a single persona."""
     settings = _settings_with_overrides(provider, model, workspace)

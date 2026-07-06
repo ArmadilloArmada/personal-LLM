@@ -190,7 +190,24 @@ class OpenAIProvider(LLMProvider):
                     yield chunk
 
 
+from persona.demo import DemoProvider
+from persona.launcher import ollama_available, resolve_provider_mode
+
+
 def get_provider(settings: Settings) -> LLMProvider:
-    if settings.provider == "openai":
+    mode = resolve_provider_mode(settings)
+    if mode == "openai":
         return OpenAIProvider(settings)
+    if mode == "demo":
+        return DemoProvider(settings)
     return OllamaProvider(settings)
+
+
+def provider_status(settings: Settings) -> dict:
+    mode = resolve_provider_mode(settings)
+    return {
+        "active": mode,
+        "ollama_available": ollama_available(settings),
+        "openai_configured": bool(settings.openai_api_key),
+        "demo_mode": mode == "demo",
+    }

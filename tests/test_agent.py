@@ -113,6 +113,38 @@ def test_board_move_task():
     assert moved[0]["column"] == "done"
 
 
+def test_demo_provider():
+    from persona.config import Settings
+    from persona.demo import DemoProvider
+    from persona.models import Message
+
+    provider = DemoProvider(Settings(provider="demo"))
+    response = provider.chat(
+        [
+            Message(role="system", content="You are Byte, the Programmer persona."),
+            Message(role="user", content="help me fix this bug"),
+        ]
+    )
+    assert response.message.content
+    assert "Byte" in response.message.content or "demo" in response.message.content.lower()
+
+
+def test_resolve_provider_demo_when_no_ollama(monkeypatch):
+    from persona.config import Settings
+    from persona.launcher import resolve_provider_mode
+
+    monkeypatch.setattr("persona.launcher.ollama_available", lambda s: False)
+    settings = Settings(provider="auto", openai_api_key="")
+    assert resolve_provider_mode(settings) == "demo"
+
+
+def test_find_free_port():
+    from persona.launcher import find_free_port
+
+    port = find_free_port(59000)
+    assert 59000 <= port < 59100
+
+
 def test_web_app_v04_routes():
     from fastapi.testclient import TestClient
     from persona.web.server import create_app
@@ -123,3 +155,5 @@ def test_web_app_v04_routes():
     status = client.get("/api/status").json()
     assert "team_workspace" in status
     assert "document_count" in status
+    assert "provider_info" in status
+    assert status["standalone"] is True

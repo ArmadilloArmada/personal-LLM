@@ -14,7 +14,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    provider: str = "ollama"
+    provider: str = "auto"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2"
     openai_base_url: str = "https://api.openai.com/v1"

@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from persona.config import Settings, get_settings
 from persona.crew import Crew
+from persona.llm import provider_status
 from persona.personas import get_persona
 from persona.projects import BOARD_COLUMNS
 from persona.rag import DocumentStore
@@ -52,6 +53,10 @@ class CustomPersonaRequest(BaseModel):
     instructions: str = ""
 
 
+class ProviderRequest(BaseModel):
+    provider: str = Field(pattern="^(auto|demo|ollama|openai)$")
+
+
 class WorkspaceCreateRequest(BaseModel):
     name: str
     company: str = ""
@@ -80,7 +85,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if workspace_id:
             crew.switch_workspace(workspace_id)
 
-    app = FastAPI(title="Persona", description="Cartoon AI crew", version="0.4.0")
+    app = FastAPI(title="Persona", description="Cartoon AI crew", version="0.5.0")
 
     @app.get("/api/personas")
     def list_personas():
@@ -158,16 +163,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/status")
     def status():
         ws = crew.team_workspace
+        pinfo = provider_status(settings)
         return {
-            "provider": settings.provider,
+            "provider": pinfo["active"],
+            "provider_info": pinfo,
             "model": settings.openai_model
-            if settings.provider == "openai"
+            if pinfo["active"] == "openai"
             else settings.ollama_model,
             "workspace": str(settings.workspace),
             "board_columns": BOARD_COLUMNS,
             "team_workspace": ws.to_dict() if ws else None,
             "document_count": len(crew.list_documents()),
+            "standalone": True,
         }
+
+    @app.post("/api/settings/provider")
+    def set_provider(req: ProviderRequest):
+        import os
+
+        os.environ["PERSONA_PROVIDER"] = req.provider
+        settings.provider = req.provider
+        pinfo = provider_status(settings)
+        return {"provider_info": pinfo}
 
     @app.post("/api/chat")
     def chat(req: ChatRequest):
