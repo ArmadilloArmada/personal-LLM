@@ -54,6 +54,12 @@ class Settings(BaseSettings):
         path.mkdir(parents=True, exist_ok=True)
         return path
 
+    @property
+    def projects_dir(self) -> Path:
+        path = self.data_dir / "projects"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
 
 def get_settings() -> Settings:
     return Settings()

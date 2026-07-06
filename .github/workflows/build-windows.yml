@@ -54,8 +54,8 @@ jobs:
               throw "Persona.exe exited with code $($proc.ExitCode)"
             }
             try {
-              $resp = Invoke-WebRequest -Uri "http://127.0.0.1:8765/api/status" -UseBasicParsing -TimeoutSec 3
-              if ($resp.StatusCode -eq 200) { $ok = $true; break }
+              $code = curl.exe -s -o NUL -w "%{http_code}" "http://127.0.0.1:8765/api/health"
+              if ($code -eq "200") { $ok = $true; break }
             } catch {}
             Start-Sleep -Seconds 1
           }

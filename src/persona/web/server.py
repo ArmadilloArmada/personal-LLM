@@ -167,6 +167,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="Document not found")
         return {"deleted": doc_id}
 
+    @app.get("/api/health")
+    def health():
+        return {"ok": True}
+
     @app.get("/api/status")
     def status():
         ws = crew.team_workspace

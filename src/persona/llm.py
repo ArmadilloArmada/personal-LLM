@@ -205,9 +205,10 @@ def get_provider(settings: Settings) -> LLMProvider:
 
 def provider_status(settings: Settings) -> dict:
     mode = resolve_provider_mode(settings)
+    check_ollama = mode not in ("demo",)
     return {
         "active": mode,
-        "ollama_available": ollama_available(settings),
+        "ollama_available": ollama_available(settings) if check_ollama else False,
         "openai_configured": bool(settings.openai_api_key),
         "demo_mode": mode == "demo",
     }
