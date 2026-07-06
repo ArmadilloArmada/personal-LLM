@@ -28,9 +28,28 @@ jobs:
       - name: Build .exe
         run: pyinstaller persona.spec --noconfirm
 
+      - name: Add Windows readme
+        run: copy windows\README.txt dist\Persona\README.txt
+
+      - name: Smoke test Persona.exe
+        shell: pwsh
+        run: |
+          $exe = "dist/Persona/Persona.exe"
+          if (-not (Test-Path $exe)) { throw "Persona.exe not found" }
+          $proc = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 12
+          try {
+            $resp = Invoke-WebRequest -Uri "http://127.0.0.1:8765/api/status" -UseBasicParsing -TimeoutSec 5
+            if ($resp.StatusCode -ne 200) { throw "Status endpoint failed" }
+            Write-Host "Smoke test passed"
+          } finally {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            Get-Process -Name "Persona" -ErrorAction SilentlyContinue | Stop-Process -Force
+          }
+
       - name: Zip portable app
         run: |
-          Compress-Archive -Path dist/Persona -DestinationPath dist/Persona-Windows-portable.zip
+          Compress-Archive -Path dist/Persona -DestinationPath dist/Persona-Windows-portable.zip -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
