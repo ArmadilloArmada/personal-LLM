@@ -19,7 +19,13 @@ from persona.personas import get_persona
 from persona.projects import BOARD_COLUMNS
 from persona.rag import DocumentStore
 
-STATIC_DIR = Path(__file__).parent / "static"
+def _static_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS) / "persona" / "web" / "static"
+    return Path(__file__).parent / "static"
+
+
+STATIC_DIR = _static_dir()
 
 
 class ChatRequest(BaseModel):
