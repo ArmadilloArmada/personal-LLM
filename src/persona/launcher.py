@@ -118,7 +118,8 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
     url = f"http://{host}:{port}"
 
     if window:
-        server = threading.Thread(target=_run_uvicorn, args=(host, port), daemon=True)
+        # Non-daemon: keeps the process alive if the main thread exits unexpectedly.
+        server = threading.Thread(target=_run_uvicorn, args=(host, port), daemon=False)
         server.start()
         _log_startup("launcher: waiting for server (window mode)")
         if not wait_for_server(host, port):
@@ -149,29 +150,59 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
     _run_uvicorn(host, port)
 
 
-def _open_window(url: str) -> None:
-    """Open Persona in a native window — pywebview first, then Edge/Chrome app mode."""
-    try:
-        import webview
+def _frozen_windows() -> bool:
+    return getattr(sys, "frozen", False) and sys.platform == "win32"
 
-        _log_startup("launcher: starting pywebview")
-        webview.create_window("Persona", url, width=1280, height=860, min_size=(900, 600))
-        if sys.platform == "win32":
-            webview.start(gui="edgechromium")
-        else:
-            webview.start()
+
+def _open_window(url: str) -> None:
+    """Open Persona in a native window — Edge app mode on frozen Windows, else pywebview."""
+    # pywebview often exits immediately in PyInstaller builds; Edge --app is reliable.
+    if _frozen_windows():
+        _log_startup("launcher: frozen Windows — trying Edge/Chrome app mode first")
+        if _open_browser_app_mode(url):
+            _log_startup("launcher: opened Edge/Chrome app window")
+            _keepalive()
+            return
+        _log_startup("launcher: Edge/Chrome not found, trying pywebview")
+
+    if _try_pywebview(url):
+        _log_startup("launcher: pywebview window closed")
         return
-    except Exception as exc:
-        _log_startup(f"launcher: pywebview failed: {exc}")
 
     if _open_browser_app_mode(url):
-        _log_startup("launcher: opened Edge/Chrome app window")
+        _log_startup("launcher: opened Edge/Chrome app window (fallback)")
         _keepalive()
         return
 
     _log_startup("launcher: falling back to default browser")
     webbrowser.open(url)
     _keepalive()
+
+
+def _try_pywebview(url: str) -> bool:
+    """Return True if pywebview ran until the user closed the window."""
+    try:
+        import webview
+    except Exception as exc:
+        _log_startup(f"launcher: pywebview import failed: {exc}")
+        return False
+
+    try:
+        _log_startup("launcher: starting pywebview")
+        webview.create_window("Persona", url, width=1280, height=860, min_size=(900, 600))
+        started = time.time()
+        if sys.platform == "win32":
+            webview.start(gui="edgechromium")
+        else:
+            webview.start()
+        elapsed = time.time() - started
+        if _frozen_windows() and elapsed < 2.0:
+            _log_startup(f"launcher: pywebview exited too fast ({elapsed:.1f}s)")
+            return False
+        return True
+    except Exception as exc:
+        _log_startup(f"launcher: pywebview failed: {exc}")
+        return False
 
 
 def _open_browser_app_mode(url: str) -> bool:
