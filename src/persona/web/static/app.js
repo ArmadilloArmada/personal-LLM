@@ -568,19 +568,123 @@ const settingsDialog = $("#settings-dialog");
 const settingsForm = $("#settings-form");
 const providerSelect = $("#provider-select");
 const providerStatus = $("#provider-status");
+const bundledSettings = $("#bundled-settings");
+const modelTierList = $("#model-tier-list");
+const ramStatus = $("#ram-status");
+const downloadStatus = $("#download-status");
+const bundledThreads = $("#bundled-threads");
+const bundledGpuLayers = $("#bundled-gpu-layers");
+
+let selectedModelTier = "balanced";
+let downloadPollTimer = null;
+
+async function fetchBundledStatus() {
+  const res = await fetch("/api/bundled/status");
+  return res.json();
+}
+
+function renderModelTiers(bundled) {
+  if (!modelTierList || !bundled?.models) return;
+  selectedModelTier = bundled.active_tier || "balanced";
+  modelTierList.innerHTML = "";
+  bundled.models.forEach((tier) => {
+    const card = document.createElement("div");
+    card.className = `model-tier-card${tier.active ? " active" : ""}`;
+    const size = tier.size_mb ? `${tier.size_mb} MB` : tier.bundled ? "bundled" : "download";
+    const ramNote = tier.ram_ok ? "" : " — needs more RAM";
+    card.innerHTML = `
+      <h5>${tier.label}${tier.active ? " (active)" : ""}</h5>
+      <p>${tier.description} · ${size}${ramNote}</p>
+      <div class="model-tier-actions"></div>
+    `;
+    const actions = card.querySelector(".model-tier-actions");
+    if (tier.installed) {
+      const useBtn = document.createElement("button");
+      useBtn.textContent = tier.active ? "Selected" : "Use this model";
+      useBtn.className = tier.active ? "" : "primary";
+      useBtn.disabled = tier.active;
+      useBtn.addEventListener("click", () => {
+        selectedModelTier = tier.id;
+        renderModelTiers({ ...bundled, active_tier: tier.id, models: bundled.models.map((m) => ({
+          ...m,
+          active: m.id === tier.id,
+        })) });
+      });
+      actions.appendChild(useBtn);
+    } else {
+      const dlBtn = document.createElement("button");
+      dlBtn.textContent = "Download";
+      dlBtn.className = "primary";
+      dlBtn.addEventListener("click", () => startModelDownload(tier.id));
+      actions.appendChild(dlBtn);
+    }
+    modelTierList.appendChild(card);
+  });
+}
+
+async function startModelDownload(tier) {
+  await fetch("/api/bundled/download", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tier }),
+  });
+  pollDownloadStatus();
+}
+
+function pollDownloadStatus() {
+  if (downloadPollTimer) clearInterval(downloadPollTimer);
+  downloadPollTimer = setInterval(async () => {
+    const res = await fetch("/api/bundled/download");
+    const dl = await res.json();
+    if (!downloadStatus) return;
+    if (dl.active) {
+      downloadStatus.hidden = false;
+      downloadStatus.textContent = `Downloading ${dl.tier}… ${dl.progress || 0}%`;
+    } else {
+      downloadStatus.hidden = !dl.error;
+      downloadStatus.textContent = dl.error ? `Download failed: ${dl.error}` : "";
+      if (!dl.error) {
+        clearInterval(downloadPollTimer);
+        downloadPollTimer = null;
+        await loadBundledSettings();
+        await loadAppStatus();
+      }
+    }
+  }, 1500);
+}
+
+async function loadBundledSettings() {
+  const bundled = await fetchBundledStatus();
+  if (ramStatus) {
+    ramStatus.textContent =
+      `System RAM: ${bundled.system_ram_gb} GB` +
+      (bundled.ram_warning ? " — 8 GB+ recommended for larger models" : "");
+  }
+  if (bundledThreads) bundledThreads.value = bundled.threads || 0;
+  if (bundledGpuLayers) bundledGpuLayers.value = bundled.gpu_layers ?? -1;
+  renderModelTiers(bundled);
+  return bundled;
+}
 
 async function loadAppStatus() {
   const res = await fetch("/api/status");
   const data = await res.json();
   const info = data.provider_info || {};
   const mode = data.provider || "demo";
+  const bundled = info.bundled || {};
 
   statusBanner.hidden = false;
-  if (mode === "demo") {
+  if (mode === "bundled") {
+    statusBanner.className = "status-banner live";
+    const tier = (bundled.models || []).find((m) => m.active);
+    statusBanner.innerHTML =
+      `<strong>Built-in AI</strong> — offline, no Ollama needed. ` +
+      `Model: <code>${tier?.label || bundled.active_tier || "balanced"}</code>`;
+  } else if (mode === "demo") {
     statusBanner.className = "status-banner demo";
     statusBanner.innerHTML =
-      "<strong>Demo mode</strong> — works without setup. " +
-      "Open Settings to connect Ollama or a cloud API.";
+      "<strong>Demo mode</strong> — scripted replies. " +
+      "Built-in AI is included — open Settings to enable it.";
   } else if (mode === "ollama" && info.ollama_available && !info.ollama_model_ready) {
     statusBanner.className = "status-banner demo";
     const model = info.ollama_model || "llama3.2";
@@ -588,13 +692,12 @@ async function loadAppStatus() {
     statusBanner.innerHTML =
       `<strong>Ollama is running</strong> — using <code>${using}</code> ` +
       `(configured <code>${model}</code> not found). ` +
-      `Run <code>ollama pull ${model.split(":")[0]}</code> for the default model.`;
+      `Run <code>ollama pull ${model.split(":")[0]}</code> or use Built-in AI.`;
   } else if (mode === "ollama" && !info.ollama_tools_supported) {
     statusBanner.className = "status-banner demo";
     statusBanner.innerHTML =
       `<strong>Ollama connected</strong> — model <code>${info.ollama_model_resolved || info.ollama_model}</code> ` +
-      "does not support tools. Chat works, but file/memory tools are disabled. " +
-      "Try <code>ollama pull llama3.2</code> for full agent features.";
+      "does not support tools. Chat works, but file/memory tools are disabled.";
   } else if (mode === "ollama") {
     statusBanner.className = "status-banner live";
     statusBanner.innerHTML = "<strong>Ollama connected.</strong>";
@@ -604,18 +707,23 @@ async function loadAppStatus() {
   }
 
   if (providerSelect) {
-    providerSelect.value = info.active === "demo" ? "demo" : (info.ollama_model_ready ? "auto" : "demo");
+    if (info.active === "bundled") providerSelect.value = "bundled";
+    else if (info.active === "demo") providerSelect.value = "demo";
+    else if (info.active === "ollama") providerSelect.value = "ollama";
+    else if (info.active === "openai") providerSelect.value = "openai";
+    else providerSelect.value = "auto";
   }
   if (providerStatus) {
+    const builtin = info.bundled_available ? "yes" : "no";
     providerStatus.textContent =
-      `Active: ${mode} | Ollama: ${info.ollama_available ? "yes" : "no"} | ` +
-      `Model: ${info.ollama_model_ready ? "ready" : "missing"} | ` +
+      `Active: ${mode} | Built-in AI: ${builtin} | Ollama: ${info.ollama_available ? "yes" : "no"} | ` +
       `API key: ${info.openai_configured ? "yes" : "no"}`;
   }
 }
 
-$("#settings-btn")?.addEventListener("click", () => {
-  loadAppStatus();
+$("#settings-btn")?.addEventListener("click", async () => {
+  await loadAppStatus();
+  await loadBundledSettings();
   settingsDialog.showModal();
 });
 $("#cancel-settings")?.addEventListener("click", () => settingsDialog.close());
@@ -628,8 +736,17 @@ settingsForm?.addEventListener("submit", async (e) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ provider }),
   });
+  await fetch("/api/bundled/settings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      bundled_model_tier: selectedModelTier,
+      bundled_threads: Number(bundledThreads?.value || 0),
+      bundled_gpu_layers: Number(bundledGpuLayers?.value ?? -1),
+    }),
+  });
   settingsDialog.close();
-  loadAppStatus();
+  await loadAppStatus();
 });
 
 // --- Theme toggle ---

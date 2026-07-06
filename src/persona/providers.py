@@ -10,6 +10,12 @@ import httpx
 from persona.config import Settings
 
 
+def bundled_ready(settings: Settings | None = None) -> bool:
+    from persona.bundled import bundled_ready as _bundled_ready
+
+    return _bundled_ready(settings)
+
+
 def ollama_available(settings: Settings) -> bool:
     try:
         r = httpx.get(f"{settings.ollama_base_url}/api/tags", timeout=1.5)
@@ -83,19 +89,25 @@ def ollama_ready(settings: Settings) -> bool:
 
 
 def resolve_provider_mode(settings: Settings) -> str:
-    """Pick provider — frozen Windows builds default to demo for instant startup."""
+    """Pick provider — bundled AI first on frozen builds, then Ollama/cloud."""
     if getattr(sys, "frozen", False) and not os.environ.get("PERSONA_PROVIDER"):
+        if bundled_ready(settings):
+            return "bundled"
         return "demo"
 
     mode = (settings.provider or "auto").lower()
     if mode == "demo":
         return "demo"
+    if mode == "bundled":
+        return "bundled" if bundled_ready(settings) else "demo"
     if mode == "openai":
         return "openai" if settings.openai_api_key else "demo"
     if mode == "ollama":
         if ollama_ready(settings):
             return "ollama"
         return "openai" if settings.openai_api_key else "demo"
+    if bundled_ready(settings):
+        return "bundled"
     if ollama_ready(settings):
         return "ollama"
     if settings.openai_api_key:

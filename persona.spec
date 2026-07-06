@@ -15,6 +15,7 @@ a = Analysis(
         "persona",
         "persona.launcher",
         "persona.providers",
+        "persona.bundled",
         "persona.demo",
         "persona.web.server",
         "persona.crew",

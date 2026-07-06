@@ -28,6 +28,11 @@ jobs:
       - name: Build .exe
         run: pyinstaller persona.spec --noconfirm
 
+      - name: Bundle llama.cpp + built-in models
+        shell: pwsh
+        run: |
+          ./scripts/setup_bundled_windows.ps1
+
       - name: Add Windows readme
         run: |
           copy windows\README.txt dist\Persona\README.txt
@@ -38,13 +43,11 @@ jobs:
         shell: pwsh
         working-directory: dist/Persona
         run: |
-          $env:PERSONA_PROVIDER = "demo"
           $env:PERSONA_NO_MSGBOX = "1"
           $exe = Join-Path $PWD "Persona.exe"
           if (-not (Test-Path $exe)) { throw "Persona.exe not found" }
-          # NoNewWindow keeps the server in the same session so localhost works in CI
           $proc = Start-Process -FilePath $exe -WorkingDirectory $PWD -PassThru -NoNewWindow
-          $deadline = (Get-Date).AddSeconds(60)
+          $deadline = (Get-Date).AddSeconds(180)
           $ok = $false
           while ((Get-Date) -lt $deadline) {
             if ($proc.HasExited) {
@@ -55,22 +58,25 @@ jobs:
               throw "Persona.exe exited with code $($proc.ExitCode)"
             }
             try {
-              $code = curl.exe -s -o NUL -w "%{http_code}" "http://127.0.0.1:8765/api/health"
-              if ($code -eq "200") { $ok = $true; break }
+              $health = curl.exe -s -o NUL -w "%{http_code}" "http://127.0.0.1:8765/api/health"
+              $bundled = curl.exe -s "http://127.0.0.1:8765/api/bundled/status"
+              if ($health -eq "200" -and $bundled -match '"server_running":\s*true') {
+                $ok = $true
+                break
+              }
             } catch {}
-            Start-Sleep -Seconds 1
+            Start-Sleep -Seconds 2
           }
           if (-not $ok) {
-            netstat -an | findstr 8765 || true
             $log = "$env:USERPROFILE\.persona\error.log"
             if (Test-Path $log) { Get-Content $log }
             $startup = "$env:USERPROFILE\.persona\startup.log"
             if (Test-Path $startup) { Get-Content $startup }
-            throw "Server did not respond on port 8765 within 60s"
+            throw "Bundled AI server did not start within 180s"
           }
-          Write-Host "Smoke test passed on port 8765"
+          Write-Host "Smoke test passed — web UI and bundled LLM running"
           Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-          Get-Process -Name "Persona" -ErrorAction SilentlyContinue | Stop-Process -Force
+          Get-Process -Name "Persona","llama-server" -ErrorAction SilentlyContinue | Stop-Process -Force
 
       - name: Zip portable app
         run: |

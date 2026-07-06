@@ -169,6 +169,15 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
         port = int(env_port) if env_port else find_free_port(settings.web_port, host)
     provider = resolve_provider_mode(settings)
 
+    if provider == "bundled":
+        from persona.bundled import start_bundled_server
+
+        _log_startup("launcher: starting bundled llama-server")
+        if not start_bundled_server(settings):
+            _log_startup("launcher: bundled server failed — falling back to demo")
+            provider = "demo"
+            os.environ["PERSONA_PROVIDER"] = "demo"
+
     os.environ["PERSONA_PROVIDER"] = provider
     os.environ["PERSONA_WEB_PORT"] = str(port)
     _log_startup(f"launcher: provider={provider} port={port}")

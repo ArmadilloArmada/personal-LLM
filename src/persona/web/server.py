@@ -17,6 +17,7 @@ from persona.crew import Crew
 from persona.llm import provider_status
 from persona.personas import get_persona
 from persona.projects import BOARD_COLUMNS
+from persona.providers import resolve_provider_mode
 from persona.rag import DocumentStore
 
 def _static_dir() -> Path:
@@ -61,7 +62,17 @@ class CustomPersonaRequest(BaseModel):
 
 
 class ProviderRequest(BaseModel):
-    provider: str = Field(pattern="^(auto|demo|ollama|openai)$")
+    provider: str = Field(pattern="^(auto|demo|bundled|ollama|openai)$")
+
+
+class BundledSettingsRequest(BaseModel):
+    bundled_model_tier: str | None = Field(default=None, pattern="^(fast|balanced|quality)$")
+    bundled_threads: int | None = Field(default=None, ge=0, le=64)
+    bundled_gpu_layers: int | None = Field(default=None, ge=-1, le=999)
+
+
+class ModelTierRequest(BaseModel):
+    tier: str = Field(pattern="^(fast|balanced|quality)$")
 
 
 class WorkspaceCreateRequest(BaseModel):
@@ -92,7 +103,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if workspace_id:
             crew.switch_workspace(workspace_id)
 
-    app = FastAPI(title="Persona", description="AI agent workspace", version="0.7.1")
+    app = FastAPI(title="Persona", description="AI agent workspace", version="0.8.0")
 
     @app.get("/api/personas")
     def list_personas():
@@ -180,7 +191,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "provider_info": pinfo,
             "model": settings.openai_model
             if pinfo["active"] == "openai"
-            else settings.ollama_model,
+            else settings.ollama_model
+            if pinfo["active"] == "ollama"
+            else pinfo.get("bundled", {}).get("active_tier", "built-in"),
             "workspace": str(settings.workspace),
             "board_columns": BOARD_COLUMNS,
             "team_workspace": ws.to_dict() if ws else None,
@@ -192,10 +205,65 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def set_provider(req: ProviderRequest):
         import os
 
+        from persona.bundled import bundled_ready, start_bundled_server, stop_bundled_server
+
         os.environ["PERSONA_PROVIDER"] = req.provider
         settings.provider = req.provider
+        if req.provider == "bundled" and bundled_ready(settings):
+            start_bundled_server(settings, force=True)
+        elif req.provider != "bundled":
+            stop_bundled_server()
         pinfo = provider_status(settings)
         return {"provider_info": pinfo}
+
+    @app.get("/api/bundled/status")
+    def bundled_info():
+        from persona.bundled import bundled_status
+
+        return bundled_status(settings)
+
+    @app.post("/api/bundled/settings")
+    def update_bundled_settings(req: BundledSettingsRequest):
+        from persona.bundled import restart_bundled_server, save_bundled_preferences
+
+        updates: dict[str, Any] = {}
+        if req.bundled_model_tier is not None:
+            updates["bundled_model_tier"] = req.bundled_model_tier
+            settings.bundled_model_tier = req.bundled_model_tier
+        if req.bundled_threads is not None:
+            updates["bundled_threads"] = req.bundled_threads
+            settings.bundled_threads = req.bundled_threads
+        if req.bundled_gpu_layers is not None:
+            updates["bundled_gpu_layers"] = req.bundled_gpu_layers
+            settings.bundled_gpu_layers = req.bundled_gpu_layers
+        if updates:
+            save_bundled_preferences(updates)
+        if resolve_provider_mode(settings) == "bundled":
+            restart_bundled_server(settings)
+        from persona.bundled import bundled_status
+
+        return {"bundled": bundled_status(settings)}
+
+    @app.post("/api/bundled/download")
+    def start_model_download(req: ModelTierRequest):
+        from persona.bundled import download_model_async, download_status
+
+        if not download_model_async(req.tier, settings):
+            raise HTTPException(status_code=409, detail="Download already in progress")
+        return download_status()
+
+    @app.get("/api/bundled/download")
+    def model_download_status():
+        from persona.bundled import download_status
+
+        return download_status()
+
+    @app.post("/api/bundled/restart")
+    def restart_bundled():
+        from persona.bundled import bundled_status, restart_bundled_server
+
+        ok = restart_bundled_server(settings)
+        return {"ok": ok, "bundled": bundled_status(settings)}
 
     @app.post("/api/chat")
     def chat(req: ChatRequest):

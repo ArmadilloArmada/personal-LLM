@@ -1,0 +1,2 @@
+# Place llama-server.exe and models/ here for local dev testing.
+# Run: pwsh scripts/setup_bundled_windows.ps1 with $DestRoot = "vendor/llama"

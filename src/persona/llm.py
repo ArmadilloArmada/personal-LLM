@@ -268,8 +268,44 @@ class OpenAIProvider(LLMProvider):
                     yield chunk
 
 
+class BundledProvider(LLMProvider):
+    """Local llama.cpp server shipped inside Persona — no Ollama install required."""
+
+    def __init__(self, settings: Settings):
+        from persona.bundled import MODEL_TIERS, bundled_server_url, resolve_active_tier
+
+        self.settings = settings
+        tier = resolve_active_tier(settings)
+        base = bundled_server_url(settings)
+        inner_settings = settings.model_copy(
+            update={
+                "openai_base_url": f"{base.rstrip('/')}/v1",
+                "openai_api_key": "",
+                "openai_model": MODEL_TIERS[tier]["label"],
+            }
+        )
+        self._inner = OpenAIProvider(inner_settings)
+        self._tier = tier
+
+    def chat(
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None = None,
+    ) -> LLMResponse:
+        return self._inner.chat(messages, tools=None)
+
+    def chat_stream(
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None = None,
+    ) -> Iterator[str]:
+        yield from self._inner.chat_stream(messages, tools=None)
+
+
 def get_provider(settings: Settings) -> LLMProvider:
     mode = resolve_provider_mode(settings)
+    if mode == "bundled":
+        return BundledProvider(settings)
     if mode == "openai":
         return OpenAIProvider(settings)
     if mode == "demo":
@@ -278,12 +314,18 @@ def get_provider(settings: Settings) -> LLMProvider:
 
 
 def provider_status(settings: Settings) -> dict:
+    from persona.bundled import bundled_status
+    from persona.providers import bundled_ready
+
     mode = resolve_provider_mode(settings)
     ollama_up = ollama_available(settings)
     model_ready = ollama_model_installed(settings)
     resolved_model = resolve_ollama_model_name(settings) if ollama_up else settings.ollama_model
+    bundled = bundled_status(settings)
     return {
         "active": mode,
+        "bundled": bundled,
+        "bundled_available": bundled_ready(settings),
         "ollama_available": ollama_up,
         "ollama_model_ready": model_ready,
         "ollama_model": settings.ollama_model,

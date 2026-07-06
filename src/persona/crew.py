@@ -147,7 +147,7 @@ class Crew:
                 for event in agent.iter_chat(prompt):
                     yield event
             else:
-                response = self.provider.chat(
+                response = get_provider(self.settings).chat(
                     [
                         Message(role="system", content=persona.system_prompt),
                         Message(role="user", content=prompt),
@@ -232,7 +232,7 @@ class Crew:
         persona = get_persona(persona_id)
         if persona.tools:
             return self._make_agent(persona).chat(prompt)
-        response = self.provider.chat(
+        response = get_provider(self.settings).chat(
             [
                 Message(role="system", content=persona.system_prompt),
                 Message(role="user", content=prompt),

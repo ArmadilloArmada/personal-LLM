@@ -1,6 +1,6 @@
 # Persona
 
-**Persona** is a standalone Windows AI agent app — download, unzip, double-click. No Python, no setup, no API keys required.
+**Persona** is a standalone Windows AI agent app — download, unzip, double-click. **Built-in AI included** — no Ollama, no Python, no API keys required.
 
 ## Download (Windows)
 
@@ -8,7 +8,7 @@
 
 1. Download and **unzip the whole folder**
 2. Double-click **`Persona.exe`**
-3. The app opens in its own window
+3. The app opens with **built-in offline AI** (first launch may take ~30s while the model loads)
 
 Optional: run **`Create Desktop Shortcut.bat`** to add Persona to your desktop.
 
@@ -16,18 +16,27 @@ See [DOWNLOAD.md](DOWNLOAD.md) if it won't open.
 
 ## What you get
 
+- **Built-in AI** — llama.cpp + local models shipped in the app (~1 GB download)
+- **Model manager** — Fast / Balanced / Quality tiers in Settings
 - **Modern dark UI** with light mode toggle
-- **Demo mode** — works instantly, no AI install needed
 - **5 built-in agents** — Byte, Sunny, Nova, Sketch, Captain
 - **Solo, Group, Project, Board** modes
 - **Team workspaces**, **knowledge base**, **custom agents**
 
-## Upgrade to full AI (optional)
+## AI options (Settings)
 
-1. Install [Ollama](https://ollama.com) → `ollama pull llama3.2`
-2. Restart Persona — it auto-detects Ollama
+| Mode | Description |
+|------|-------------|
+| **Built-in AI** (default) | Offline, included in the zip — no install |
+| **Quality model** | Download Llama 3.2 3B from Settings (~2 GB, best answers) |
+| **Ollama** | Optional advanced local setup |
+| **Cloud API** | OpenAI-compatible API key |
 
-Or set a cloud API key in Settings inside the app.
+## Upgrade options (optional)
+
+- **Settings → Built-in model → Quality** — download the larger 3B model
+- Install [Ollama](https://ollama.com) for power-user local models with tool support
+- Add a cloud API key in Settings
 
 ## Data
 

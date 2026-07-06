@@ -125,7 +125,7 @@ class Agent:
         schemas = tool_schemas(self.tools) if self.tools else None
 
         for _ in range(self.settings.max_tool_rounds):
-            response = self.provider.chat(self.messages, tools=schemas)
+            response = get_provider(self.settings).chat(self.messages, tools=schemas)
             assistant = response.message
             self.messages.append(assistant)
 
