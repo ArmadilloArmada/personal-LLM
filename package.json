@@ -15,8 +15,7 @@
     "install:all": "npm install && npm install --prefix big-brain",
     "install:persona": "pip install -e persona-app[desktop]",
     "start": "powershell -ExecutionPolicy Bypass -File scripts/start-unified.ps1",
-    "start:all": "powershell -ExecutionPolicy Bypass -File scripts/start-unified.ps1 -WithVite",
-    "postinstall": "npm install --prefix big-brain"
+    "start:all": "powershell -ExecutionPolicy Bypass -File scripts/start-unified.ps1 -WithVite"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

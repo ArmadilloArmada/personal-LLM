@@ -45,7 +45,7 @@ jobs:
 
       - name: Build Big Brain
         run: |
-          npm install
+          npm install --prefix big-brain
           npm run build --prefix big-brain
 
       - name: Install Persona
