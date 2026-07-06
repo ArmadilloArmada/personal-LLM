@@ -37,7 +37,7 @@ jobs:
         shell: pwsh
         run: |
           $env:PERSONA_PROVIDER = "demo"
-          $proc = Start-Process python -ArgumentList "-c", "from persona.launcher import run_standalone; run_standalone()" -WorkingDirectory $PWD -PassThru -NoNewWindow
+          $proc = Start-Process python -ArgumentList "scripts/smoke_launcher.py" -WorkingDirectory $PWD -PassThru -NoNewWindow
           $deadline = (Get-Date).AddSeconds(30)
           $ok = $false
           while ((Get-Date) -lt $deadline) {

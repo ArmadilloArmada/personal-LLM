@@ -71,9 +71,7 @@ def wait_for_server(host: str, port: int, timeout: float = 45.0) -> bool:
 
 
 def _run_uvicorn(host: str, port: int) -> None:
-    import asyncio
-
-    from uvicorn import Config, Server
+    import uvicorn
 
     try:
         _log_startup("uvicorn: importing app")
@@ -83,19 +81,15 @@ def _run_uvicorn(host: str, port: int) -> None:
             static = Path(sys._MEIPASS) / "persona" / "web" / "static"
             _log_startup(f"uvicorn: static exists={static.exists()}")
 
-        config = Config(
-            app=fastapi_app,
+        _log_startup(f"uvicorn: starting on {host}:{port}")
+        uvicorn.run(
+            fastapi_app,
             host=host,
             port=port,
             log_level="warning",
             log_config=None,
             access_log=False,
-            loop="asyncio",
-            http="h11",
         )
-        server = Server(config)
-        _log_startup(f"uvicorn: serving on {host}:{port}")
-        asyncio.run(server.serve())
         _log_startup("uvicorn: exited")
     except Exception:
         _log_error(RuntimeError("uvicorn failed"))
@@ -122,35 +116,39 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
 
     url = f"http://{host}:{port}"
 
-    if window:
-        threading.Thread(
-            target=lambda: wait_for_server(host, port) and _open_window(url),
-            daemon=True,
-        ).start()
-    else:
-        threading.Thread(
-            target=lambda: wait_for_server(host, port) and webbrowser.open(url),
-            daemon=True,
-        ).start()
+    server = threading.Thread(target=_run_uvicorn, args=(host, port), daemon=True)
+    server.start()
+    _log_startup("launcher: server thread started")
 
-    if not getattr(sys, "frozen", False):
-        _print_banner(url, provider)
-
-    try:
-        _run_uvicorn(host, port)
-    except Exception as exc:
+    if not wait_for_server(host, port):
         message = (
             "Persona could not start its local server.\n\n"
             "Check %USERPROFILE%\\.persona\\error.log and startup.log\n\n"
             "Make sure you unzipped the full folder and run Persona.exe inside it."
         )
-        _log_startup(f"launcher: fatal error: {exc}")
-        _log_error(exc)
+        _log_startup("launcher: server did not respond in time")
+        _log_error(RuntimeError(f"Server did not respond on {host}:{port}"))
         if getattr(sys, "frozen", False):
             if not os.environ.get("PERSONA_NO_MSGBOX"):
                 _show_windows_error(message)
             sys.exit(1)
-        raise
+        print("Persona failed to start. Try: persona serve", file=sys.stderr)
+        sys.exit(1)
+
+    _log_startup("launcher: server ready, opening browser")
+    if window:
+        _open_window(url)
+    else:
+        webbrowser.open(url)
+        if not getattr(sys, "frozen", False):
+            _print_banner(url, provider)
+
+    try:
+        while server.is_alive():
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        if not getattr(sys, "frozen", False):
+            print("\nPersona closed.")
 
 
 def _open_window(url: str) -> None:
