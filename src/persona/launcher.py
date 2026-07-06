@@ -24,15 +24,30 @@ def _log_error(exc: BaseException) -> None:
     path.write_text(traceback.format_exc(), encoding="utf-8")
 
 
+def _show_windows_error(message: str) -> None:
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+
+        ctypes.windll.user32.MessageBoxW(0, message, "Persona", 0x10)
+    except Exception:
+        pass
+
+
 def ollama_available(settings: Settings) -> bool:
     try:
-        r = httpx.get(f"{settings.ollama_base_url}/api/tags", timeout=2.0)
+        r = httpx.get(f"{settings.ollama_base_url}/api/tags", timeout=1.5)
         return r.status_code == 200
     except Exception:
         return False
 
 
 def resolve_provider_mode(settings: Settings) -> str:
+    """Pick provider — frozen Windows builds default to demo for instant startup."""
+    if getattr(sys, "frozen", False) and not os.environ.get("PERSONA_PROVIDER"):
+        return "demo"
+
     mode = (settings.provider or "auto").lower()
     if mode == "demo":
         return "demo"
@@ -71,30 +86,33 @@ def wait_for_server(host: str, port: int, timeout: float = 30.0) -> bool:
                 return True
         except Exception:
             pass
-        time.sleep(0.25)
+        time.sleep(0.2)
     return False
 
 
-def _create_uvicorn_app():
-    from persona.web.server import create_app
-
-    return create_app()
-
-
-def _open_browser_when_ready(host: str, port: int, url: str) -> None:
-    if wait_for_server(host, port):
-        webbrowser.open(url)
+def _run_uvicorn(host: str, port: int) -> None:
+    try:
+        uvicorn.run(
+            "persona.web.server:app",
+            host=host,
+            port=port,
+            log_level="warning",
+        )
+    except Exception as exc:
+        _log_error(exc)
+        raise
 
 
 def run_standalone(*, window: bool = False, port: int | None = None) -> None:
-    """Launch Persona — browser opens, server runs on main thread (Windows-safe)."""
+    """Launch Persona — opens browser after the local server is ready."""
     if getattr(sys, "frozen", False):
         os.chdir(Path(sys.executable).parent)
 
     settings = get_settings()
     host = "127.0.0.1"
     if port is None:
-        port = int(os.environ["PERSONA_WEB_PORT"]) if os.environ.get("PERSONA_WEB_PORT") else find_free_port(settings.web_port)
+        env_port = os.environ.get("PERSONA_WEB_PORT")
+        port = int(env_port) if env_port else find_free_port(settings.web_port)
     provider = resolve_provider_mode(settings)
 
     os.environ["PERSONA_PROVIDER"] = provider
@@ -102,34 +120,50 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
 
     url = f"http://{host}:{port}"
 
+    server = threading.Thread(target=_run_uvicorn, args=(host, port), daemon=True)
+    server.start()
+
+    if not wait_for_server(host, port):
+        message = (
+            "Persona could not start its local server.\n\n"
+            f"Check %USERPROFILE%\\.persona\\error.log\n\n"
+            "Make sure you unzipped the full folder and run Persona.exe inside it."
+        )
+        _log_error(RuntimeError(f"Server did not respond on {host}:{port}"))
+        if getattr(sys, "frozen", False):
+            _show_windows_error(message)
+            sys.exit(1)
+        print("Persona failed to start. Try: persona serve", file=sys.stderr)
+        sys.exit(1)
+
     if window:
-        try:
-            import webview
-
-            threading.Thread(
-                target=lambda: (wait_for_server(host, port) and webview.create_window(
-                    "Persona", url, width=1200, height=800
-                )),
-                daemon=True,
-            ).start()
-        except ImportError:
-            threading.Thread(
-                target=_open_browser_when_ready, args=(host, port, url), daemon=True
-            ).start()
+        _open_window(url, host, port)
     else:
-        threading.Thread(
-            target=_open_browser_when_ready, args=(host, port, url), daemon=True
-        ).start()
-
-    if not getattr(sys, "frozen", False):
-        _print_banner(url, provider)
+        webbrowser.open(url)
+        if not getattr(sys, "frozen", False):
+            _print_banner(url, provider)
 
     try:
-        app = _create_uvicorn_app()
-        uvicorn.run(app, host=host, port=port, log_level="warning")
-    except Exception as exc:
-        _log_error(exc)
-        raise
+        while server.is_alive():
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        if not getattr(sys, "frozen", False):
+            print("\nPersona closed.")
+
+
+def _open_window(url: str, host: str, port: int) -> None:
+    try:
+        import webview
+
+        webview.create_window("Persona", url, width=1200, height=800, min_size=(800, 600))
+        webview.start()
+    except ImportError:
+        webbrowser.open(url)
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nPersona closed.")
 
 
 def _print_banner(url: str, provider: str) -> None:

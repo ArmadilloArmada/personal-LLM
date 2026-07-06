@@ -33,6 +33,19 @@ hiddenimports += [
     "persona.memory",
     "persona.models",
     "persona.config",
+    "uvicorn.logging",
+    "uvicorn.loops",
+    "uvicorn.loops.auto",
+    "uvicorn.protocols",
+    "uvicorn.protocols.http",
+    "uvicorn.protocols.http.auto",
+    "uvicorn.protocols.http.h11_impl",
+    "uvicorn.protocols.websockets",
+    "uvicorn.protocols.websockets.auto",
+    "uvicorn.lifespan",
+    "uvicorn.lifespan.on",
+    "pydantic_core",
+    "annotated_types",
     "yaml",
     "multipart",
     "anyio",
@@ -41,6 +54,7 @@ hiddenimports += [
     "h11",
     "httpcore",
     "certifi",
+    "email_validator",
 ]
 
 a = Analysis(

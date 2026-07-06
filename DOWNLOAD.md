@@ -1,23 +1,28 @@
 # Download Persona for Windows
 
-## Download (Windows only)
+Persona is a **Windows desktop app** — not Linux or Mac.
+
+## Download
 
 **https://github.com/ArmadilloArmada/personal-LLM/releases/latest/download/Persona-Windows-portable.zip**
 
-### How to run
+## How to run
 
-1. **Unzip the whole folder** — do not move `Persona.exe` out on its own
+1. **Unzip the entire zip file** — do not drag only `Persona.exe` out
 2. Open the `Persona` folder
-3. Double-click **`Persona.exe`**
-4. Your browser opens automatically
+3. Double-click **`Persona.exe`** or **`Run Persona.bat`**
+4. Your browser opens at `http://127.0.0.1:8765`
 
-### If it still won't open
+The `_internal` folder must stay in the same folder as `Persona.exe`.
 
-- Check `%USERPROFILE%\.persona\error.log` for details
-- Right-click `Persona.exe` → **Run as administrator** (first launch only)
-- Allow it through Windows Defender / antivirus
-- Make sure you unzipped **all** files (the `_internal` folder must be next to `Persona.exe`)
+## If it won't open
 
-### Releases page
+1. Use **`Run Persona.bat`** instead of double-clicking the exe
+2. Check **`%USERPROFILE%\.persona\error.log`** for the error message
+3. Right-click `Persona.exe` → **Run as administrator** (first launch only)
+4. Allow it through **Windows Defender** / antivirus if blocked
+5. Confirm you unzipped **all** files from the zip
+
+## Releases page
 
 https://github.com/ArmadilloArmada/personal-LLM/releases

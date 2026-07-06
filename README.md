@@ -1,32 +1,17 @@
 # Persona
 
-**Persona** is a standalone cartoon AI crew app — double-click and chat. No Ollama, no API keys, no config required to get started.
+**Persona** is a Windows cartoon AI crew app — unzip, double-click, and chat. No Python, no Ollama, no API keys required to get started.
 
-## Windows .exe (no install)
+## Windows download
 
-**Download:** https://github.com/ArmadilloArmada/personal-LLM/releases/latest/download/Persona-Windows-portable.zip
+**https://github.com/ArmadilloArmada/personal-LLM/releases/latest/download/Persona-Windows-portable.zip**
 
-Unzip → double-click `Persona.exe`. See [DOWNLOAD.md](DOWNLOAD.md).
+1. Download and **unzip the whole folder**
+2. Open the `Persona` folder
+3. Double-click **`Persona.exe`** (or `Run Persona.bat`)
+4. Your browser opens automatically
 
-## Install (one command)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ArmadilloArmada/personal-LLM/main/install.sh | bash
-```
-
-Or from this folder:
-
-```bash
-chmod +x install.sh && ./install.sh
-```
-
-Then just run:
-
-```bash
-persona
-```
-
-That's it. Your browser opens automatically.
+See [DOWNLOAD.md](DOWNLOAD.md) if it won't open.
 
 ## What you get out of the box
 
@@ -37,25 +22,12 @@ That's it. Your browser opens automatically.
 
 ## Upgrade to full AI (optional)
 
-When you want real LLM power:
+When you want real LLM power on Windows:
 
 1. Install [Ollama](https://ollama.com) → `ollama pull llama3.2`
-2. Persona **auto-detects** it — or click ⚙️ Settings in the app
+2. Restart Persona — it **auto-detects** Ollama
 
-Or set a cloud API key:
-
-```bash
-export PERSONA_OPENAI_API_KEY=sk-...
-```
-
-## Launch options
-
-| Command | What it does |
-|---------|----------------|
-| `persona` | Open app (default) |
-| `persona app` | Same — opens browser |
-| `persona app -w` | Native window (`pip install persona[desktop]`) |
-| Desktop menu | Search "Persona" after install |
+Or set a cloud API key in the app settings (⚙️).
 
 ## Features
 
@@ -67,15 +39,7 @@ export PERSONA_OPENAI_API_KEY=sk-...
 
 ## Data
 
-Everything stays local in `~/.persona/`
-
-## Development
-
-```bash
-pip install -e ".[dev]"
-persona
-pytest
-```
+Everything stays local in `%USERPROFILE%\.persona\`
 
 ## License
 

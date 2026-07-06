@@ -29,30 +29,40 @@ jobs:
         run: pyinstaller persona.spec --noconfirm
 
       - name: Add Windows readme
-        run: copy windows\README.txt dist\Persona\README.txt
+        run: |
+          copy windows\README.txt dist\Persona\README.txt
+          copy "windows\Run Persona.bat" "dist\Persona\Run Persona.bat"
 
       - name: Smoke test Persona.exe
         shell: pwsh
+        working-directory: dist/Persona
         run: |
-          $env:PERSONA_WEB_PORT = "9876"
           $env:PERSONA_PROVIDER = "demo"
-          $exe = "dist/Persona/Persona.exe"
+          $exe = Join-Path $PWD "Persona.exe"
           if (-not (Test-Path $exe)) { throw "Persona.exe not found" }
-          $proc = Start-Process -FilePath $exe -PassThru
-          Start-Sleep -Seconds 20
-          try {
+          $proc = Start-Process -FilePath $exe -WorkingDirectory $PWD -PassThru
+          $deadline = (Get-Date).AddSeconds(30)
+          $ok = $false
+          while ((Get-Date) -lt $deadline) {
             if ($proc.HasExited) {
               $log = "$env:USERPROFILE\.persona\error.log"
               if (Test-Path $log) { Get-Content $log }
               throw "Persona.exe exited with code $($proc.ExitCode)"
             }
-            $resp = Invoke-WebRequest -Uri "http://127.0.0.1:9876/api/status" -UseBasicParsing -TimeoutSec 10
-            if ($resp.StatusCode -ne 200) { throw "Status endpoint failed" }
-            Write-Host "Smoke test passed on port 9876"
-          } finally {
-            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-            Get-Process -Name "Persona" -ErrorAction SilentlyContinue | Stop-Process -Force
+            try {
+              $resp = Invoke-WebRequest -Uri "http://127.0.0.1:8765/api/status" -UseBasicParsing -TimeoutSec 2
+              if ($resp.StatusCode -eq 200) { $ok = $true; break }
+            } catch {}
+            Start-Sleep -Seconds 1
           }
+          if (-not $ok) {
+            $log = "$env:USERPROFILE\.persona\error.log"
+            if (Test-Path $log) { Get-Content $log }
+            throw "Server did not respond on port 8765 within 30s"
+          }
+          Write-Host "Smoke test passed on port 8765"
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          Get-Process -Name "Persona" -ErrorAction SilentlyContinue | Stop-Process -Force
 
       - name: Zip portable app
         run: |
