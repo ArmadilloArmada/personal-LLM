@@ -1,0 +1,48 @@
+name: Build Persona Windows .exe
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Build .exe
+        run: pyinstaller persona.spec --noconfirm
+
+      - name: Zip portable app
+        run: |
+          Compress-Archive -Path dist/Persona -DestinationPath dist/Persona-Windows-portable.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Persona-Windows
+          path: |
+            dist/Persona-Windows-portable.zip
+            dist/Persona/Persona.exe
+
+      - name: Publish GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Persona-Windows-portable.zip
+          generate_release_notes: true

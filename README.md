@@ -2,6 +2,12 @@
 
 **Persona** is a standalone cartoon AI crew app — double-click and chat. No Ollama, no API keys, no config required to get started.
 
+## Windows .exe (no install)
+
+**Download:** https://github.com/ArmadilloArmada/personal-LLM/releases/latest/download/Persona-Windows-portable.zip
+
+Unzip → double-click `Persona.exe`. See [DOWNLOAD.md](DOWNLOAD.md).
+
 ## Install (one command)
 
 ```bash
