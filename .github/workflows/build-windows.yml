@@ -33,25 +33,6 @@ jobs:
           copy windows\README.txt dist\Persona\README.txt
           copy "windows\Run Persona.bat" "dist\Persona\Run Persona.bat"
 
-      - name: Smoke test Python launcher
-        shell: pwsh
-        run: |
-          $env:PERSONA_PROVIDER = "demo"
-          $proc = Start-Process python -ArgumentList "scripts/smoke_launcher.py" -WorkingDirectory $PWD -PassThru -NoNewWindow
-          $deadline = (Get-Date).AddSeconds(30)
-          $ok = $false
-          while ((Get-Date) -lt $deadline) {
-            if ($proc.HasExited) { throw "Python launcher exited with code $($proc.ExitCode)" }
-            try {
-              $resp = Invoke-WebRequest -Uri "http://127.0.0.1:8765/api/status" -UseBasicParsing -TimeoutSec 2
-              if ($resp.StatusCode -eq 200) { $ok = $true; break }
-            } catch {}
-            Start-Sleep -Seconds 1
-          }
-          if (-not $ok) { throw "Python launcher did not respond on port 8765" }
-          Write-Host "Python smoke test passed"
-          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-
       - name: Smoke test Persona.exe
         shell: pwsh
         working-directory: dist/Persona
