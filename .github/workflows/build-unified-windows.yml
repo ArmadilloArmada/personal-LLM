@@ -64,11 +64,14 @@ jobs:
         shell: pwsh
         run: |
           $dist = "dist/Persona"
-          New-Item -ItemType Directory -Force -Path "$dist/brain/client", "$dist/brain/server", "$dist/node" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$dist/brain/client", "$dist/brain/server", "$dist/brain/node_modules", "$dist/node" | Out-Null
           Copy-Item -Recurse -Force "big-brain/client/dist" "$dist/brain/client/"
           Copy-Item -Recurse -Force "big-brain/server/dist" "$dist/brain/server/"
-          Copy-Item -Recurse -Force "big-brain/server/node_modules" "$dist/brain/server/node_modules/"
-          Copy-Item -Recurse -Force "big-brain/node_modules" "$dist/brain/node_modules/" -ErrorAction SilentlyContinue
+          if (Test-Path "big-brain/server/node_modules") {
+            Copy-Item -Recurse -Force "big-brain/server/node_modules" "$dist/brain/server/node_modules/"
+          }
+          if (-not (Test-Path "big-brain/node_modules")) { throw "big-brain/node_modules missing — run npm install --prefix big-brain" }
+          Copy-Item -Recurse -Force "big-brain/node_modules" "$dist/brain/node_modules/"
           $nodeDir = (Get-Command node).Source | Split-Path -Parent
           Copy-Item "$nodeDir/node.exe" "$dist/node/node.exe"
           Copy-Item persona-app/windows/README.txt "$dist/README.txt" -ErrorAction SilentlyContinue
