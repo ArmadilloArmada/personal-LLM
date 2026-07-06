@@ -116,39 +116,21 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
 
     url = f"http://{host}:{port}"
 
-    server = threading.Thread(target=_run_uvicorn, args=(host, port), daemon=True)
-    server.start()
-    _log_startup("launcher: server thread started")
-
-    if not wait_for_server(host, port):
-        message = (
-            "Persona could not start its local server.\n\n"
-            "Check %USERPROFILE%\\.persona\\error.log and startup.log\n\n"
-            "Make sure you unzipped the full folder and run Persona.exe inside it."
-        )
-        _log_startup("launcher: server did not respond in time")
-        _log_error(RuntimeError(f"Server did not respond on {host}:{port}"))
-        if getattr(sys, "frozen", False):
-            if not os.environ.get("PERSONA_NO_MSGBOX"):
-                _show_windows_error(message)
-            sys.exit(1)
-        print("Persona failed to start. Try: persona serve", file=sys.stderr)
-        sys.exit(1)
-
-    _log_startup("launcher: server ready, opening browser")
     if window:
-        _open_window(url)
+        threading.Thread(
+            target=lambda: wait_for_server(host, port) and _open_window(url),
+            daemon=True,
+        ).start()
     else:
-        webbrowser.open(url)
-        if not getattr(sys, "frozen", False):
-            _print_banner(url, provider)
+        threading.Thread(
+            target=lambda: wait_for_server(host, port) and webbrowser.open(url),
+            daemon=True,
+        ).start()
 
-    try:
-        while server.is_alive():
-            time.sleep(0.5)
-    except KeyboardInterrupt:
-        if not getattr(sys, "frozen", False):
-            print("\nPersona closed.")
+    if not getattr(sys, "frozen", False):
+        _print_banner(url, provider)
+
+    _run_uvicorn(host, port)
 
 
 def _open_window(url: str) -> None:
