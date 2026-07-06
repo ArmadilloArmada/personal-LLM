@@ -42,6 +42,8 @@ a = Analysis(
         "uvicorn.protocols.websockets.auto",
         "uvicorn.lifespan",
         "uvicorn.lifespan.on",
+        "uvicorn.server",
+        "uvicorn.config",
         "fastapi",
         "starlette",
         "starlette.routing",

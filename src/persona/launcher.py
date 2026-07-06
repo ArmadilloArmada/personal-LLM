@@ -12,7 +12,6 @@ import webbrowser
 from pathlib import Path
 
 import httpx
-import uvicorn
 
 from persona.config import Settings, get_settings
 from persona.providers import resolve_provider_mode
@@ -72,19 +71,31 @@ def wait_for_server(host: str, port: int, timeout: float = 45.0) -> bool:
 
 
 def _run_uvicorn(host: str, port: int) -> None:
+    import asyncio
+
+    from uvicorn import Config, Server
+
     try:
         _log_startup("uvicorn: importing app")
         from persona.web.server import app as fastapi_app
 
-        _log_startup(f"uvicorn: starting on {host}:{port}")
-        uvicorn.run(
-            fastapi_app,
+        if getattr(sys, "frozen", False):
+            static = Path(sys._MEIPASS) / "persona" / "web" / "static"
+            _log_startup(f"uvicorn: static exists={static.exists()}")
+
+        config = Config(
+            app=fastapi_app,
             host=host,
             port=port,
             log_level="warning",
             log_config=None,
             access_log=False,
+            loop="asyncio",
+            http="h11",
         )
+        server = Server(config)
+        _log_startup(f"uvicorn: serving on {host}:{port}")
+        asyncio.run(server.serve())
         _log_startup("uvicorn: exited")
     except Exception:
         _log_error(RuntimeError("uvicorn failed"))
