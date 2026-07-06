@@ -11,17 +11,17 @@ New-Item -ItemType Directory -Force -Path $modelsDir | Out-Null
 
 Write-Host "Downloading llama.cpp Windows CPU binaries..."
 $llamaZip = Join-Path $env:TEMP "llama-win-cpu.zip"
+$extractTmp = Join-Path $env:TEMP "llama-extract"
 $llamaUrl = "https://github.com/ggml-org/llama.cpp/releases/download/$LlamaRelease/llama-$LlamaRelease-bin-win-cpu-x64.zip"
 Invoke-WebRequest -Uri $llamaUrl -OutFile $llamaZip
-Expand-Archive -Path $llamaZip -DestinationPath $DestRoot -Force
+if (Test-Path $extractTmp) { Remove-Item $extractTmp -Recurse -Force }
+Expand-Archive -Path $llamaZip -DestinationPath $extractTmp -Force
 
-# Flatten if extracted into versioned subfolder
-$server = Get-ChildItem -Path $DestRoot -Filter "llama-server.exe" -Recurse | Select-Object -First 1
-if ($server -and $server.DirectoryName -ne $DestRoot) {
-    Copy-Item $server.FullName -Destination (Join-Path $DestRoot "llama-server.exe") -Force
-    Get-ChildItem $server.Directory -Filter "*.dll" | ForEach-Object {
-        Copy-Item $_.FullName -Destination $DestRoot -Force
-    }
+$server = Get-ChildItem -Path $extractTmp -Filter "llama-server.exe" -Recurse | Select-Object -First 1
+if (-not $server) { throw "llama-server.exe not found in archive" }
+Copy-Item $server.FullName -Destination (Join-Path $DestRoot "llama-server.exe") -Force
+Get-ChildItem $server.Directory -Filter "*.dll" -ErrorAction SilentlyContinue | ForEach-Object {
+    Copy-Item $_.FullName -Destination $DestRoot -Force
 }
 
 Write-Host "Downloading Fast model (Qwen2.5 0.5B)..."
