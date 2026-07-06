@@ -89,6 +89,7 @@ def _run_uvicorn(host: str, port: int) -> None:
             log_level="warning",
             log_config=None,
             access_log=False,
+            http="h11",
         )
         _log_startup("uvicorn: exited")
     except Exception:
