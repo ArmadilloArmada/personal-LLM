@@ -65,13 +65,15 @@ jobs:
         run: |
           $dist = "dist/Persona"
           New-Item -ItemType Directory -Force -Path "$dist/brain/client", "$dist/brain/server", "$dist/node" | Out-Null
-          Copy-Item -Recurse -Force big-brain/client/dist/* "$dist/brain/client/dist/"
-          Copy-Item -Recurse -Force big-brain/server/dist/* "$dist/brain/server/dist/"
-          Copy-Item -Recurse -Force big-brain/server/node_modules "$dist/brain/server/node_modules/"
-          Copy-Item -Recurse -Force big-brain/node_modules "$dist/brain/node_modules/" -ErrorAction SilentlyContinue
+          Copy-Item -Recurse -Force "big-brain/client/dist" "$dist/brain/client/"
+          Copy-Item -Recurse -Force "big-brain/server/dist" "$dist/brain/server/"
+          Copy-Item -Recurse -Force "big-brain/server/node_modules" "$dist/brain/server/node_modules/"
+          Copy-Item -Recurse -Force "big-brain/node_modules" "$dist/brain/node_modules/" -ErrorAction SilentlyContinue
           $nodeDir = (Get-Command node).Source | Split-Path -Parent
           Copy-Item "$nodeDir/node.exe" "$dist/node/node.exe"
           Copy-Item persona-app/windows/README.txt "$dist/README.txt" -ErrorAction SilentlyContinue
+          Copy-Item "persona-app/windows/Run Persona.bat" "$dist/Run Persona.bat" -ErrorAction SilentlyContinue
+          Copy-Item "persona-app/windows/Create Desktop Shortcut.bat" "$dist/Create Desktop Shortcut.bat" -ErrorAction SilentlyContinue
           Copy-Item "persona-app/windows/Run Persona.bat" "$dist/Run Persona.bat" -ErrorAction SilentlyContinue
           Copy-Item "persona-app/windows/Create Desktop Shortcut.bat" "$dist/Create Desktop Shortcut.bat" -ErrorAction SilentlyContinue
 
