@@ -584,9 +584,17 @@ async function loadAppStatus() {
   } else if (mode === "ollama" && info.ollama_available && !info.ollama_model_ready) {
     statusBanner.className = "status-banner demo";
     const model = info.ollama_model || "llama3.2";
+    const using = info.ollama_model_resolved || model;
     statusBanner.innerHTML =
-      `<strong>Ollama is running</strong> but model <code>${model}</code> is not installed. ` +
-      `Run <code>ollama pull ${model.split(":")[0]}</code> or switch to Demo in Settings.`;
+      `<strong>Ollama is running</strong> — using <code>${using}</code> ` +
+      `(configured <code>${model}</code> not found). ` +
+      `Run <code>ollama pull ${model.split(":")[0]}</code> for the default model.`;
+  } else if (mode === "ollama" && !info.ollama_tools_supported) {
+    statusBanner.className = "status-banner demo";
+    statusBanner.innerHTML =
+      `<strong>Ollama connected</strong> — model <code>${info.ollama_model_resolved || info.ollama_model}</code> ` +
+      "does not support tools. Chat works, but file/memory tools are disabled. " +
+      "Try <code>ollama pull llama3.2</code> for full agent features.";
   } else if (mode === "ollama") {
     statusBanner.className = "status-banner live";
     statusBanner.innerHTML = "<strong>Ollama connected.</strong>";
