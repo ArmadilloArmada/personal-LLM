@@ -15,11 +15,12 @@ $llamaUrl = "https://github.com/ggml-org/llama.cpp/releases/download/$LlamaRelea
 Invoke-WebRequest -Uri $llamaUrl -OutFile $llamaZip
 Expand-Archive -Path $llamaZip -DestinationPath $DestRoot -Force
 
-# Flatten if extracted into subfolder
-Get-ChildItem -Path $DestRoot -Filter "llama-server.exe" -Recurse | ForEach-Object {
-    if ($_.DirectoryName -ne $DestRoot) {
-        Copy-Item $_.FullName -Destination (Join-Path $DestRoot "llama-server.exe") -Force
-        Get-ChildItem $_.Directory -Filter "*.dll" | Copy-Item -Destination $DestRoot -Force
+# Flatten if extracted into versioned subfolder
+$server = Get-ChildItem -Path $DestRoot -Filter "llama-server.exe" -Recurse | Select-Object -First 1
+if ($server -and $server.DirectoryName -ne $DestRoot) {
+    Copy-Item $server.FullName -Destination (Join-Path $DestRoot "llama-server.exe") -Force
+    Get-ChildItem $server.Directory -Filter "*.dll" | ForEach-Object {
+        Copy-Item $_.FullName -Destination $DestRoot -Force
     }
 }
 
