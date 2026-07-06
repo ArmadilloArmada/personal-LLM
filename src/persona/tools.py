@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 
 import httpx
 
-from personal_llm.memory import MemoryStore
+from persona.memory import MemoryStore
 
 
 class Tool(ABC):

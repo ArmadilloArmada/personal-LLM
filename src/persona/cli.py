@@ -7,19 +7,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import typer
+import uvicorn
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
 
-from personal_llm.agent import Agent
-from personal_llm.config import Settings, get_settings
-from personal_llm.llm import get_provider
-from personal_llm.memory import MemoryStore
+from persona.agent import Agent
+from persona.config import Settings, get_settings
+from persona.crew import Crew
+from persona.llm import get_provider
+from persona.memory import MemoryStore
+from persona.personas import get_persona, list_personas
 
 app = typer.Typer(
-    name="personal-llm",
-    help="Personal LLM agent — local-first with tools and memory",
+    name="persona",
+    help="Persona — cartoon AI crew with specialized agents",
     no_args_is_help=True,
 )
 console = Console()
@@ -44,16 +47,36 @@ def _settings_with_overrides(
 
 
 @app.command()
+def serve(
+    host: str | None = typer.Option(None, "--host", "-h"),
+    port: int | None = typer.Option(None, "--port", "-p"),
+) -> None:
+    """Launch the interactive Persona web app."""
+    settings = get_settings()
+    host = host or settings.web_host
+    port = port or settings.web_port
+    console.print(Panel.fit(
+        f"[bold]Persona Interactive App[/bold]\n"
+        f"Open [link=http://{host}:{port}]http://{host}:{port}[/link] in your browser\n"
+        f"[dim]Ctrl+C to stop[/dim]",
+        border_style="magenta",
+    ))
+    uvicorn.run("persona.web.server:app", host=host, port=port, reload=False)
+
+
+@app.command()
 def chat(
     message: str | None = typer.Argument(None, help="Single message (omit for interactive mode)"),
+    persona: str = typer.Option("byte", "--persona", "-P", help="Persona id: byte, sunny, nova, sketch, captain"),
     provider: str | None = typer.Option(None, "--provider", "-p", help="ollama or openai"),
     model: str | None = typer.Option(None, "--model", "-m", help="Model name"),
     workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Working directory"),
     session: str | None = typer.Option(None, "--session", "-s", help="Session name to resume"),
 ) -> None:
-    """Chat with your personal agent (with tools)."""
+    """Chat with a single persona."""
     settings = _settings_with_overrides(provider, model, workspace)
-    agent = _make_agent(settings)
+    p = get_persona(persona)
+    agent = _make_agent(settings, p)
 
     if session:
         session_path = settings.sessions_dir / f"{session}.json"
@@ -62,26 +85,22 @@ def chat(
             console.print(f"[dim]Resumed session: {session}[/dim]")
 
     if message:
-        _print_response(agent.chat(message))
+        _print_response(agent.chat(message), p.name)
         if session:
             agent.save_session(settings.sessions_dir / f"{session}.json")
         return
 
     console.print(Panel.fit(
-        f"[bold]Personal LLM Agent[/bold]\n"
-        f"Provider: {settings.provider} | Model: "
-        f"{settings.openai_model if settings.provider == 'openai' else settings.ollama_model}\n"
-        f"Workspace: {settings.workspace}\n"
-        f"[dim]Type 'exit' or Ctrl+C to quit. 'reset' clears conversation.[/dim]",
+        f"[bold]{p.emoji} {p.name}[/bold] — {p.role}\n"
+        f"{p.tagline}\n"
+        f"Provider: {settings.provider} | Workspace: {settings.workspace}\n"
+        f"[dim]Type 'exit' to quit, 'reset' to clear.[/dim]",
         border_style="blue",
     ))
 
-    session_path = None
-    if session:
-        session_path = settings.sessions_dir / f"{session}.json"
-    else:
-        default_name = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-        session_path = settings.sessions_dir / f"{default_name}.json"
+    session_path = settings.sessions_dir / (
+        f"{session}.json" if session else f"{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.json"
+    )
 
     try:
         while True:
@@ -94,15 +113,47 @@ def chat(
                 continue
             if not user_input.strip():
                 continue
-
-            with console.status("[bold green]Thinking...[/bold green]"):
+            with console.status(f"[bold]{p.name} thinking...[/bold]"):
                 response = agent.chat(user_input)
-            _print_response(response)
+            _print_response(response, p.name)
             agent.save_session(session_path)
     except KeyboardInterrupt:
         console.print("\n[dim]Goodbye.[/dim]")
-        if session_path:
-            agent.save_session(session_path)
+        agent.save_session(session_path)
+
+
+@app.command()
+def group(
+    message: str = typer.Argument(..., help="Message for the crew"),
+    mode: str = typer.Option("roundtable", "--mode", "-M", help="roundtable or project"),
+    provider: str | None = typer.Option(None, "--provider", "-p"),
+) -> None:
+    """Ask the whole crew (roundtable) or start a project."""
+    settings = _settings_with_overrides(provider)
+    crew = Crew(settings)
+
+    if mode == "project":
+        result = crew.project(message)
+    else:
+        result = crew.roundtable(message)
+
+    for msg in result.messages:
+        p = get_persona(msg.persona_id)
+        title = f"{p.emoji} {p.name}"
+        if msg.phase != "response":
+            title += f" [{msg.phase}]"
+        console.print(Panel(Markdown(msg.content), title=title, border_style="green"))
+
+
+@app.command()
+def crew() -> None:
+    """List all personas in your crew."""
+    for p in list_personas():
+        console.print(
+            f"  {p.emoji} [bold]{p.name}[/bold] ({p.id}) — {p.role}\n"
+            f"     {p.tagline}\n"
+            f"     [dim]Specialties: {', '.join(p.specialties)}[/dim]"
+        )
 
 
 @app.command()
@@ -111,13 +162,13 @@ def ask(
     provider: str | None = typer.Option(None, "--provider", "-p"),
     model: str | None = typer.Option(None, "--model", "-m"),
 ) -> None:
-    """Simple one-shot chat without tools (faster for quick questions)."""
+    """Simple one-shot chat without tools."""
     settings = _settings_with_overrides(provider, model)
     provider_instance = get_provider(settings)
-    from personal_llm.models import Message
+    from persona.models import Message
 
     response = provider_instance.chat([Message(role="user", content=message)])
-    _print_response(response.message.content or "")
+    _print_response(response.message.content or "", "Persona")
 
 
 @app.command("memory")
@@ -134,12 +185,12 @@ def memory_cmd(
         console.print(store.list_all())
     elif action == "add":
         if not key or not value:
-            console.print("[red]Usage: personal-llm memory add <key> <value>[/red]")
+            console.print("[red]Usage: persona memory add <key> <value>[/red]")
             raise typer.Exit(1)
         console.print(store.add(key, value))
     elif action == "remove":
         if not key:
-            console.print("[red]Usage: personal-llm memory remove <key>[/red]")
+            console.print("[red]Usage: persona memory remove <key>[/red]")
             raise typer.Exit(1)
         console.print(store.remove(key))
     else:
@@ -152,14 +203,14 @@ def status() -> None:
     """Show configuration and check provider connectivity."""
     settings = get_settings()
     console.print(Panel.fit(
-        f"[bold]Configuration[/bold]\n"
+        f"[bold]Persona Configuration[/bold]\n"
         f"Provider: {settings.provider}\n"
         f"Ollama: {settings.ollama_base_url} / {settings.ollama_model}\n"
         f"OpenAI: {settings.openai_base_url} / {settings.openai_model}\n"
         f"Workspace: {settings.workspace}\n"
         f"Data dir: {settings.data_dir}\n"
-        f"Max tool rounds: {settings.max_tool_rounds}",
-        title="personal-llm status",
+        f"Web: http://{settings.web_host}:{settings.web_port}",
+        title="persona status",
         border_style="green",
     ))
 
@@ -173,16 +224,14 @@ def status() -> None:
             console.print(f"[green]Ollama connected.[/green] Models: {', '.join(models) or '(none)'}")
         except Exception as exc:
             console.print(f"[red]Ollama not reachable:[/red] {exc}")
-            console.print("[dim]Install from https://ollama.com and run: ollama pull llama3.2[/dim]")
     else:
         if not settings.openai_api_key:
-            console.print("[yellow]Warning: PERSONAL_LLM_OPENAI_API_KEY is not set.[/yellow]")
+            console.print("[yellow]Warning: PERSONA_OPENAI_API_KEY is not set.[/yellow]")
         else:
             console.print("[green]OpenAI API key configured.[/green]")
 
-    store = MemoryStore(settings.memory_file)
-    mem = store.list_all()
-    console.print(f"\n[bold]Memories[/bold]\n{mem}")
+    console.print("\n[bold]Crew[/bold]")
+    crew()
 
 
 @app.command()
@@ -196,13 +245,14 @@ def sessions() -> None:
     for p in paths[:20]:
         try:
             data = json.loads(p.read_text(encoding="utf-8"))
+            persona = data.get("persona_id", "?")
             count = len(data.get("messages", []))
-            console.print(f"  {p.stem}  ({count} messages)")
+            console.print(f"  {p.stem}  ({persona}, {count} messages)")
         except Exception:
             console.print(f"  {p.stem}  (corrupt)")
 
 
-def _make_agent(settings: Settings) -> Agent:
+def _make_agent(settings: Settings, persona=None) -> Agent:
     def on_tool_call(name: str, args: dict) -> None:
         console.print(f"[dim]→ {name}({json.dumps(args, ensure_ascii=False)[:120]})[/dim]")
 
@@ -210,12 +260,12 @@ def _make_agent(settings: Settings) -> Agent:
         preview = result[:200] + ("..." if len(result) > 200 else "")
         console.print(f"[dim]← {name}: {preview}[/dim]")
 
-    return Agent(settings, on_tool_call=on_tool_call, on_tool_result=on_tool_result)
+    return Agent(settings, persona=persona, on_tool_call=on_tool_call, on_tool_result=on_tool_result)
 
 
-def _print_response(text: str) -> None:
+def _print_response(text: str, title: str = "Agent") -> None:
     console.print()
-    console.print(Panel(Markdown(text), title="[bold green]Agent[/bold green]", border_style="green"))
+    console.print(Panel(Markdown(text), title=f"[bold green]{title}[/bold green]", border_style="green"))
 
 
 if __name__ == "__main__":

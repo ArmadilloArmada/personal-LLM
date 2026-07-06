@@ -1,4 +1,4 @@
-"""Agent loop with tool execution."""
+"""Agent loop with persona identity and tool execution."""
 
 from __future__ import annotations
 
@@ -7,39 +7,29 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
-from personal_llm.config import Settings
-from personal_llm.llm import get_provider
-from personal_llm.memory import MemoryStore
-from personal_llm.models import Message
-from personal_llm.tools import Tool, build_tools, run_tool, tool_schemas
-
-SYSTEM_PROMPT = """You are a capable personal AI agent running on the user's machine.
-
-You help with coding, research, file management, shell commands, and general tasks.
-You have tools to read/write files, list directories, run shell commands, fetch web pages,
-and remember facts across sessions.
-
-Guidelines:
-- Be direct and helpful. Prefer action over lengthy explanations.
-- Use tools when they help accomplish the task — don't guess file contents or command output.
-- Stay within the workspace unless the user explicitly asks otherwise.
-- When you learn something important about the user (name, preferences, project context), use remember.
-- For destructive shell commands, explain what you're about to do first.
-- If a task is ambiguous, ask a short clarifying question before acting.
-"""
+from persona.config import Settings
+from persona.llm import get_provider
+from persona.memory import MemoryStore
+from persona.models import Message
+from persona.personas import DEFAULT_PERSONA, Persona, get_persona
+from persona.tools import Tool, build_tools, run_tool, tool_schemas
 
 
 class Agent:
     def __init__(
         self,
         settings: Settings,
+        persona: Persona | None = None,
         on_tool_call: Callable[[str, dict], None] | None = None,
         on_tool_result: Callable[[str, str], None] | None = None,
     ):
         self.settings = settings
+        self.persona = persona or DEFAULT_PERSONA
         self.workspace = settings.workspace.resolve()
         self.memory = MemoryStore(settings.memory_file)
-        self.tools: list[Tool] = build_tools(self.workspace, self.memory)
+        all_tools = build_tools(self.workspace, self.memory)
+        allowed = set(self.persona.tools)
+        self.tools: list[Tool] = [t for t in all_tools if t.name in allowed]
         self.provider = get_provider(settings)
         self.messages: list[Message] = []
         self.on_tool_call = on_tool_call
@@ -48,7 +38,7 @@ class Agent:
 
     def _init_system(self) -> None:
         memory_context = self.memory.as_context()
-        content = SYSTEM_PROMPT
+        content = self.persona.system_prompt
         if memory_context:
             content += f"\n\n{memory_context}"
         content += f"\n\nWorkspace: {self.workspace}"
@@ -59,9 +49,11 @@ class Agent:
         self._init_system()
 
     def load_session(self, path: Path) -> None:
-        from personal_llm.models import ToolCall
+        from persona.models import ToolCall
 
         data = json.loads(path.read_text(encoding="utf-8"))
+        if data.get("persona_id"):
+            self.persona = get_persona(data["persona_id"])
         self.messages = []
         for m in data.get("messages", []):
             tool_calls = [
@@ -91,16 +83,18 @@ class Agent:
                     for tc in m.tool_calls
                 ]
             serializable.append(d)
-        path.write_text(json.dumps({"messages": serializable}, indent=2), encoding="utf-8")
+        path.write_text(
+            json.dumps({"persona_id": self.persona.id, "messages": serializable}, indent=2),
+            encoding="utf-8",
+        )
 
     def chat(self, user_input: str) -> str:
         self.messages.append(Message(role="user", content=user_input))
 
+        schemas = tool_schemas(self.tools) if self.tools else None
+
         for _ in range(self.settings.max_tool_rounds):
-            response = self.provider.chat(
-                self.messages,
-                tools=tool_schemas(self.tools),
-            )
+            response = self.provider.chat(self.messages, tools=schemas)
             assistant = response.message
             self.messages.append(assistant)
 
@@ -122,4 +116,7 @@ class Agent:
                     )
                 )
 
-        return "I reached the maximum number of tool rounds. Please try a simpler request or continue the conversation."
+        return (
+            "I reached the maximum number of tool rounds. "
+            "Please try a simpler request or continue the conversation."
+        )

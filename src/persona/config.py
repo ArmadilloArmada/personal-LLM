@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_prefix="PERSONAL_LLM_",
+        env_prefix="PERSONA_",
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
@@ -22,10 +22,12 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     max_tool_rounds: int = 15
     workspace: Path = Field(default_factory=lambda: Path.cwd())
+    web_host: str = "127.0.0.1"
+    web_port: int = 8765
 
     @property
     def data_dir(self) -> Path:
-        path = Path.home() / ".personal-llm"
+        path = Path.home() / ".persona"
         path.mkdir(parents=True, exist_ok=True)
         return path
 
@@ -36,6 +38,12 @@ class Settings(BaseSettings):
     @property
     def sessions_dir(self) -> Path:
         path = self.data_dir / "sessions"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    @property
+    def projects_dir(self) -> Path:
+        path = self.data_dir / "projects"
         path.mkdir(parents=True, exist_ok=True)
         return path
 

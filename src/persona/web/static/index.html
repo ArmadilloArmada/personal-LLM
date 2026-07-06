@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Persona — Your Cartoon AI Crew</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <div class="sky-bg"></div>
+  <div class="cloud cloud-1"></div>
+  <div class="cloud cloud-2"></div>
+  <div class="cloud cloud-3"></div>
+
+  <div class="app">
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🎭</span>
+        <div>
+          <h1>Persona</h1>
+          <p class="tagline">Your cartoon AI crew — ask one, ask all, or hand off a project.</p>
+        </div>
+      </div>
+      <div class="mode-switch" role="tablist">
+        <button class="mode-btn active" data-mode="solo" role="tab">Solo</button>
+        <button class="mode-btn" data-mode="roundtable" role="tab">Group</button>
+        <button class="mode-btn" data-mode="project" role="tab">Project</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <aside class="stage-panel">
+        <h2 class="panel-title">The Crew</h2>
+        <p class="panel-hint" id="mode-hint">Pick a persona to chat one-on-one.</p>
+        <div class="persona-grid" id="persona-grid"></div>
+
+        <section class="projects-panel" id="projects-panel" hidden>
+          <h3>Active Projects</h3>
+          <ul id="project-list"></ul>
+        </section>
+      </aside>
+
+      <section class="chat-panel">
+        <div class="stage" id="stage">
+          <div class="stage-floor"></div>
+          <div class="stage-characters" id="stage-characters"></div>
+        </div>
+
+        <div class="messages" id="messages">
+          <div class="welcome-bubble">
+            <h3>Welcome aboard! 👋</h3>
+            <p>Meet your crew: <strong>Byte</strong> codes, <strong>Sunny</strong> chats,
+              <strong>Nova</strong> researches, <strong>Sketch</strong> creates, and
+              <strong>Captain</strong> runs projects.</p>
+            <p>Try: <em>"Help me plan a todo app"</em> in Project mode, or ask Byte to review some code in Solo.</p>
+          </div>
+        </div>
+
+        <form class="composer" id="composer">
+          <textarea
+            id="input"
+            rows="2"
+            placeholder="Ask your persona or crew..."
+            autocomplete="off"
+          ></textarea>
+          <button type="submit" id="send-btn" class="send-btn">
+            <span class="send-label">Send</span>
+            <span class="send-icon">➤</span>
+          </button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

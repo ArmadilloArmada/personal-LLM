@@ -9,4 +9,4 @@ build/
 .pytest_cache/
 .ruff_cache/
 *.log
-.personal-llm/
+.persona/

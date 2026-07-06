@@ -8,8 +8,8 @@ from typing import Any
 
 import httpx
 
-from personal_llm.config import Settings
-from personal_llm.models import LLMResponse, Message, ToolCall
+from persona.config import Settings
+from persona.models import LLMResponse, Message, ToolCall
 
 
 class LLMProvider(ABC):
