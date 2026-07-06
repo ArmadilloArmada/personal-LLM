@@ -131,9 +131,9 @@ def test_demo_provider():
 
 def test_resolve_provider_demo_when_no_ollama(monkeypatch):
     from persona.config import Settings
-    from persona.launcher import resolve_provider_mode
+    from persona.providers import resolve_provider_mode
 
-    monkeypatch.setattr("persona.launcher.ollama_available", lambda s: False)
+    monkeypatch.setattr("persona.providers.ollama_available", lambda s: False)
     settings = Settings(provider="auto", openai_api_key="")
     assert resolve_provider_mode(settings) == "demo"
 

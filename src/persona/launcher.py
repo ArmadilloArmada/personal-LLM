@@ -15,12 +15,25 @@ import httpx
 import uvicorn
 
 from persona.config import Settings, get_settings
+from persona.providers import resolve_provider_mode
+
+
+def _persona_log_dir() -> Path:
+    path = Path.home() / ".persona"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _log_startup(message: str) -> None:
+    if not getattr(sys, "frozen", False):
+        return
+    log_path = _persona_log_dir() / "startup.log"
+    with log_path.open("a", encoding="utf-8") as fh:
+        fh.write(f"{time.strftime('%H:%M:%S')} {message}\n")
 
 
 def _log_error(exc: BaseException) -> None:
-    log_dir = Path.home() / ".persona"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    path = log_dir / "error.log"
+    path = _persona_log_dir() / "error.log"
     path.write_text(traceback.format_exc(), encoding="utf-8")
 
 
@@ -35,49 +48,17 @@ def _show_windows_error(message: str) -> None:
         pass
 
 
-def ollama_available(settings: Settings) -> bool:
-    try:
-        r = httpx.get(f"{settings.ollama_base_url}/api/tags", timeout=1.5)
-        return r.status_code == 200
-    except Exception:
-        return False
-
-
-def resolve_provider_mode(settings: Settings) -> str:
-    """Pick provider — frozen Windows builds default to demo for instant startup."""
-    if getattr(sys, "frozen", False) and not os.environ.get("PERSONA_PROVIDER"):
-        return "demo"
-
-    mode = (settings.provider or "auto").lower()
-    if mode == "demo":
-        return "demo"
-    if mode == "openai":
-        return "openai" if settings.openai_api_key else "demo"
-    if mode == "ollama":
-        if ollama_available(settings):
-            return "ollama"
-        return "openai" if settings.openai_api_key else "demo"
-    if ollama_available(settings):
-        return "ollama"
-    if settings.openai_api_key:
-        return "openai"
-    return "demo"
-
-
 def find_free_port(preferred: int = 8765) -> int:
     for port in range(preferred, preferred + 50):
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.bind(("127.0.0.1", port))
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            if sock.connect_ex(("127.0.0.1", port)) != 0:
                 return port
-        except OSError:
-            continue
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
         return sock.getsockname()[1]
 
 
-def wait_for_server(host: str, port: int, timeout: float = 30.0) -> bool:
+def wait_for_server(host: str, port: int, timeout: float = 45.0) -> bool:
     url = f"http://{host}:{port}/api/status"
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -92,19 +73,21 @@ def wait_for_server(host: str, port: int, timeout: float = 30.0) -> bool:
 
 def _run_uvicorn(host: str, port: int) -> None:
     try:
-        uvicorn.run(
-            "persona.web.server:app",
-            host=host,
-            port=port,
-            log_level="warning",
-        )
-    except Exception as exc:
-        _log_error(exc)
+        _log_startup("uvicorn thread: importing app")
+        from persona.web.server import app as fastapi_app
+
+        _log_startup(f"uvicorn thread: starting on {host}:{port}")
+        uvicorn.run(fastapi_app, host=host, port=port, log_level="warning")
+        _log_startup("uvicorn thread: exited")
+    except Exception:
+        _log_error(RuntimeError("uvicorn failed"))
+        _log_startup("uvicorn thread: failed (see error.log)")
         raise
 
 
 def run_standalone(*, window: bool = False, port: int | None = None) -> None:
     """Launch Persona — opens browser after the local server is ready."""
+    _log_startup("launcher: begin")
     if getattr(sys, "frozen", False):
         os.chdir(Path(sys.executable).parent)
 
@@ -117,41 +100,45 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
 
     os.environ["PERSONA_PROVIDER"] = provider
     os.environ["PERSONA_WEB_PORT"] = str(port)
+    _log_startup(f"launcher: provider={provider} port={port}")
 
     url = f"http://{host}:{port}"
 
-    server = threading.Thread(target=_run_uvicorn, args=(host, port), daemon=True)
+    server = threading.Thread(target=_run_uvicorn, args=(host, port), daemon=False)
     server.start()
+    _log_startup("launcher: server thread started")
 
     if not wait_for_server(host, port):
         message = (
             "Persona could not start its local server.\n\n"
-            f"Check %USERPROFILE%\\.persona\\error.log\n\n"
+            "Check %USERPROFILE%\\.persona\\error.log and startup.log\n\n"
             "Make sure you unzipped the full folder and run Persona.exe inside it."
         )
+        _log_startup("launcher: server did not respond in time")
         _log_error(RuntimeError(f"Server did not respond on {host}:{port}"))
         if getattr(sys, "frozen", False):
-            _show_windows_error(message)
+            if not os.environ.get("PERSONA_NO_MSGBOX"):
+                _show_windows_error(message)
             sys.exit(1)
         print("Persona failed to start. Try: persona serve", file=sys.stderr)
         sys.exit(1)
 
+    _log_startup("launcher: server ready, opening browser")
     if window:
-        _open_window(url, host, port)
+        _open_window(url)
     else:
         webbrowser.open(url)
         if not getattr(sys, "frozen", False):
             _print_banner(url, provider)
 
     try:
-        while server.is_alive():
-            time.sleep(0.5)
+        server.join()
     except KeyboardInterrupt:
         if not getattr(sys, "frozen", False):
             print("\nPersona closed.")
 
 
-def _open_window(url: str, host: str, port: int) -> None:
+def _open_window(url: str) -> None:
     try:
         import webview
 

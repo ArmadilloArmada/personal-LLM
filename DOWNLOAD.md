@@ -18,7 +18,7 @@ The `_internal` folder must stay in the same folder as `Persona.exe`.
 ## If it won't open
 
 1. Use **`Run Persona.bat`** instead of double-clicking the exe
-2. Check **`%USERPROFILE%\.persona\error.log`** for the error message
+2. Check **`%USERPROFILE%\.persona\error.log`** and **`startup.log`** for details
 3. Right-click `Persona.exe` → **Run as administrator** (first launch only)
 4. Allow it through **Windows Defender** / antivirus if blocked
 5. Confirm you unzipped **all** files from the zip

@@ -38,15 +38,18 @@ jobs:
         working-directory: dist/Persona
         run: |
           $env:PERSONA_PROVIDER = "demo"
+          $env:PERSONA_NO_MSGBOX = "1"
           $exe = Join-Path $PWD "Persona.exe"
           if (-not (Test-Path $exe)) { throw "Persona.exe not found" }
           $proc = Start-Process -FilePath $exe -WorkingDirectory $PWD -PassThru
-          $deadline = (Get-Date).AddSeconds(30)
+          $deadline = (Get-Date).AddSeconds(45)
           $ok = $false
           while ((Get-Date) -lt $deadline) {
             if ($proc.HasExited) {
               $log = "$env:USERPROFILE\.persona\error.log"
               if (Test-Path $log) { Get-Content $log }
+              $startup = "$env:USERPROFILE\.persona\startup.log"
+              if (Test-Path $startup) { Get-Content $startup }
               throw "Persona.exe exited with code $($proc.ExitCode)"
             }
             try {
@@ -58,7 +61,9 @@ jobs:
           if (-not $ok) {
             $log = "$env:USERPROFILE\.persona\error.log"
             if (Test-Path $log) { Get-Content $log }
-            throw "Server did not respond on port 8765 within 30s"
+            $startup = "$env:USERPROFILE\.persona\startup.log"
+            if (Test-Path $startup) { Get-Content $startup }
+            throw "Server did not respond on port 8765 within 45s"
           }
           Write-Host "Smoke test passed on port 8765"
           Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue

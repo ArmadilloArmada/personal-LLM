@@ -191,7 +191,7 @@ class OpenAIProvider(LLMProvider):
 
 
 from persona.demo import DemoProvider
-from persona.launcher import ollama_available, resolve_provider_mode
+from persona.providers import ollama_available, resolve_provider_mode
 
 
 def get_provider(settings: Settings) -> LLMProvider:

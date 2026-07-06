@@ -2,72 +2,67 @@
 """PyInstaller spec — Windows portable Persona.exe (one-folder build)."""
 
 from pathlib import Path
-import os
-
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 root = Path(SPECPATH)
-src_static = root / "src" / "persona" / "web" / "static"
-
-hiddenimports = collect_submodules("uvicorn")
-hiddenimports += collect_submodules("fastapi")
-hiddenimports += collect_submodules("starlette")
-hiddenimports += collect_submodules("pydantic")
-hiddenimports += collect_submodules("pydantic_settings")
-hiddenimports += collect_submodules("httpx")
-hiddenimports += [
-    "persona",
-    "persona.launcher",
-    "persona.demo",
-    "persona.web.server",
-    "persona.crew",
-    "persona.agent",
-    "persona.llm",
-    "persona.personas",
-    "persona.custom",
-    "persona.rag",
-    "persona.workspace",
-    "persona.avatars",
-    "persona.projects",
-    "persona.tools",
-    "persona.memory",
-    "persona.models",
-    "persona.config",
-    "uvicorn.logging",
-    "uvicorn.loops",
-    "uvicorn.loops.auto",
-    "uvicorn.protocols",
-    "uvicorn.protocols.http",
-    "uvicorn.protocols.http.auto",
-    "uvicorn.protocols.http.h11_impl",
-    "uvicorn.protocols.websockets",
-    "uvicorn.protocols.websockets.auto",
-    "uvicorn.lifespan",
-    "uvicorn.lifespan.on",
-    "pydantic_core",
-    "annotated_types",
-    "yaml",
-    "multipart",
-    "anyio",
-    "anyio._backends._asyncio",
-    "sniffio",
-    "h11",
-    "httpcore",
-    "certifi",
-    "email_validator",
-]
+src = root / "src" / "persona" / "web" / "static"
 
 a = Analysis(
     [str(root / "persona_exe.py")],
     pathex=[str(root / "src")],
     binaries=[],
-    datas=[(str(src_static), "persona" + os.sep + "web" + os.sep + "static")]
-    + collect_data_files("certifi"),
-    hiddenimports=hiddenimports,
+    datas=[(str(src), "persona/web/static")],
+    hiddenimports=[
+        "persona",
+        "persona.launcher",
+        "persona.providers",
+        "persona.demo",
+        "persona.web.server",
+        "persona.crew",
+        "persona.agent",
+        "persona.llm",
+        "persona.personas",
+        "persona.custom",
+        "persona.rag",
+        "persona.workspace",
+        "persona.avatars",
+        "persona.projects",
+        "persona.tools",
+        "persona.memory",
+        "persona.models",
+        "persona.config",
+        "uvicorn",
+        "uvicorn.logging",
+        "uvicorn.loops",
+        "uvicorn.loops.auto",
+        "uvicorn.protocols",
+        "uvicorn.protocols.http",
+        "uvicorn.protocols.http.auto",
+        "uvicorn.protocols.http.h11_impl",
+        "uvicorn.protocols.websockets",
+        "uvicorn.protocols.websockets.auto",
+        "uvicorn.lifespan",
+        "uvicorn.lifespan.on",
+        "fastapi",
+        "starlette",
+        "starlette.routing",
+        "pydantic",
+        "pydantic_core",
+        "pydantic_settings",
+        "annotated_types",
+        "httpx",
+        "httpcore",
+        "h11",
+        "anyio",
+        "anyio._backends._asyncio",
+        "sniffio",
+        "certifi",
+        "yaml",
+        "multipart",
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=["tkinter"],
     noarchive=False,
     optimize=0,
 )
