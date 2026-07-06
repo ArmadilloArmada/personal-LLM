@@ -1,35 +1,50 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Persona — Your Cartoon AI Crew</title>
+  <title>Persona — AI Agents</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/app.css" />
+  <script>
+    (function () {
+      const stored = localStorage.getItem("persona-theme");
+      const theme = stored || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
 </head>
 <body>
-  <div class="sky-bg"></div>
-  <div class="cloud cloud-1"></div>
-  <div class="cloud cloud-2"></div>
-  <div class="cloud cloud-3"></div>
-
   <div class="app">
     <header class="header">
       <div class="logo">
-        <span class="logo-icon">🎭</span>
+        <div class="logo-mark" aria-hidden="true">P</div>
         <div>
           <h1>Persona</h1>
-          <p class="tagline">Your cartoon AI crew — solo, group, project, or board.</p>
+          <p class="tagline">AI agents for solo, team, and project work</p>
         </div>
       </div>
       <div class="header-actions">
         <select id="workspace-select" class="workspace-select" title="Team workspace"></select>
-        <button type="button" class="icon-btn" id="new-workspace-btn" title="New team workspace">🏢</button>
-        <button type="button" class="icon-btn" id="settings-btn" title="AI settings">⚙️</button>
-        <button type="button" class="icon-btn" id="voice-toggle" title="Toggle voice replies">🔊</button>
-        <button type="button" class="icon-btn" id="add-persona-btn" title="Add custom persona">➕ Persona</button>
+        <button type="button" class="icon-btn icon-only" id="new-workspace-btn" title="New team workspace">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/><path d="M9 9v0M9 12v0M9 15v0"/></svg>
+        </button>
+        <button type="button" class="icon-btn icon-only" id="theme-toggle" title="Toggle theme">
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <button type="button" class="icon-btn icon-only" id="settings-btn" title="AI settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+        <button type="button" class="icon-btn icon-only" id="voice-toggle" title="Toggle voice replies">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+        </button>
+        <button type="button" class="icon-btn" id="add-persona-btn" title="Add custom persona">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Agent</span>
+        </button>
         <div class="mode-switch" role="tablist">
           <button class="mode-btn active" data-mode="solo" role="tab">Solo</button>
           <button class="mode-btn" data-mode="roundtable" role="tab">Group</button>
@@ -40,53 +55,52 @@
     </header>
 
     <main class="main">
-      <aside class="stage-panel" id="crew-panel">
-        <h2 class="panel-title">The Crew</h2>
-        <p class="panel-hint" id="mode-hint">Pick a persona to chat one-on-one.</p>
+      <aside class="sidebar-panel" id="crew-panel">
+        <h2 class="panel-title">Agents</h2>
+        <p class="panel-hint" id="mode-hint">Select an agent for one-on-one chat.</p>
         <div class="persona-grid" id="persona-grid"></div>
         <section class="docs-panel" id="docs-panel">
-          <h3>📚 Company Docs</h3>
-          <p class="panel-hint">Upload policies, specs, or notes — personas can search them.</p>
+          <h3>Knowledge base</h3>
+          <p class="panel-hint">Upload policies, specs, or notes for agents to search.</p>
           <label class="upload-btn">
-            Upload doc
+            Upload document
             <input type="file" id="doc-upload" accept=".txt,.md,.markdown,.csv,.json,.yaml,.yml,.rst" hidden />
           </label>
           <ul id="doc-list"></ul>
         </section>
         <section class="projects-panel" id="projects-panel" hidden>
-          <h3>Active Projects</h3>
+          <h3>Active projects</h3>
           <ul id="project-list"></ul>
         </section>
       </aside>
 
       <section class="chat-panel" id="chat-panel">
-        <div class="stage" id="stage">
-          <div class="stage-floor"></div>
-          <div class="stage-characters" id="stage-characters"></div>
-        </div>
+        <div class="active-agents" id="active-agents"></div>
 
         <div class="messages" id="messages">
           <div id="status-banner" class="status-banner" hidden></div>
           <div class="welcome-bubble">
-            <h3>Welcome aboard! 👋</h3>
-            <p>Persona runs <strong>standalone</strong> — just chat. No setup required.</p>
-            <p>Pick a crew member, try Solo or Project mode, and explore. Add real AI later in ⚙️ Settings.</p>
+            <h3>Welcome to Persona</h3>
+            <p>Start chatting immediately — no setup required. Demo mode works out of the box.</p>
+            <p>Select an agent, try Solo or Project mode, and connect a real LLM in Settings when ready.</p>
           </div>
         </div>
 
         <form class="composer" id="composer">
-          <button type="button" class="mic-btn" id="mic-btn" title="Voice input">🎤</button>
-          <textarea id="input" rows="2" placeholder="Ask your persona or crew..." autocomplete="off"></textarea>
+          <button type="button" class="mic-btn icon-only" id="mic-btn" title="Voice input">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+          </button>
+          <textarea id="input" rows="2" placeholder="Message your agent or team..." autocomplete="off"></textarea>
           <button type="submit" id="send-btn" class="send-btn">
             <span class="send-label">Send</span>
-            <span class="send-icon">➤</span>
+            <svg class="send-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
           </button>
         </form>
       </section>
 
       <section class="board-panel" id="board-panel" hidden>
         <div class="board-header">
-          <h2>Project Board</h2>
+          <h2>Project board</h2>
           <select id="board-project-select"></select>
         </div>
         <div class="kanban" id="kanban"></div>
@@ -96,13 +110,13 @@
 
   <dialog id="settings-dialog" class="persona-dialog">
     <form method="dialog" id="settings-form">
-      <h3>⚙️ AI Settings</h3>
-      <p class="panel-hint">Persona auto-picks the best mode. Override here if you want.</p>
-      <label>Mode
+      <h3>AI settings</h3>
+      <p class="panel-hint">Persona auto-selects the best provider. Override here if needed.</p>
+      <label>Provider
         <select name="provider" id="provider-select">
           <option value="auto">Auto (recommended)</option>
-          <option value="demo">Demo — works instantly, no install</option>
-          <option value="ollama">Ollama — local AI</option>
+          <option value="demo">Demo — instant, no install</option>
+          <option value="ollama">Ollama — local</option>
           <option value="openai">Cloud API — OpenAI compatible</option>
         </select>
       </label>
@@ -116,15 +130,15 @@
 
   <dialog id="persona-dialog" class="persona-dialog">
     <form method="dialog" id="persona-form">
-      <h3>Create Custom Persona</h3>
+      <h3>Create custom agent</h3>
       <label>Name <input name="name" required placeholder="Ledger" /></label>
       <label>Role <input name="role" required placeholder="Accountant" /></label>
       <label>Company <input name="company" placeholder="Acme Corp" /></label>
-      <label>Tagline <input name="tagline" placeholder="Numbers with personality." /></label>
+      <label>Tagline <input name="tagline" placeholder="Numbers with clarity." /></label>
       <label>Emoji <input name="emoji" value="🤖" maxlength="4" /></label>
       <label>Color <input name="color" type="color" value="#6366F1" /></label>
       <label>Avatar image <input name="avatar" type="file" accept="image/*" /></label>
-      <label>Instructions <textarea name="instructions" rows="3" placeholder="You are Ledger, our friendly finance expert..."></textarea></label>
+      <label>Instructions <textarea name="instructions" rows="3" placeholder="You are Ledger, our finance specialist..."></textarea></label>
       <div class="dialog-actions">
         <button type="button" id="cancel-persona">Cancel</button>
         <button type="submit" class="send-btn">Create</button>

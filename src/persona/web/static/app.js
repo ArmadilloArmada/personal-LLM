@@ -1,4 +1,4 @@
-/** Persona v0.4 — teams, RAG docs, custom avatars */
+/** Persona — modern UI */
 
 const state = {
   mode: "solo",
@@ -16,16 +16,16 @@ const state = {
 };
 
 const COLUMN_LABELS = {
-  backlog: "📋 Backlog",
-  in_progress: "🚀 In Progress",
-  review: "👀 Review",
-  done: "✅ Done",
+  backlog: "Backlog",
+  in_progress: "In Progress",
+  review: "Review",
+  done: "Done",
 };
 
 const $ = (sel) => document.querySelector(sel);
 const grid = $("#persona-grid");
 const messages = $("#messages");
-const stageChars = $("#stage-characters");
+const activeAgents = $("#active-agents");
 const modeHint = $("#mode-hint");
 const projectsPanel = $("#projects-panel");
 const projectList = $("#project-list");
@@ -45,64 +45,17 @@ const workspaceSelect = $("#workspace-select");
 const docUpload = $("#doc-upload");
 const docList = $("#doc-list");
 
-function avatarHtml(persona, size = 52) {
+function avatarHtml(persona, size = 40) {
   if (persona?.avatar_url) {
     return `<img src="${persona.avatar_url}?t=${Date.now()}" width="${size}" height="${size}" alt="${persona.name}" />`;
   }
-  return svgAvatar(persona, size);
+  const initials = (persona?.name || "?").slice(0, 2).toUpperCase();
+  return `<div class="avatar-initials" style="--persona-color:${persona?.color || "#6366f1"};width:${size}px;height:${size}px">${initials}</div>`;
 }
 
-// --- Cartoon SVG avatars ---
-
-function svgAvatar(persona, size = 52) {
-  const { color, accent, shape } = persona;
-  let body = "";
-
-  if (shape === "square") {
-    body = `
-      <rect x="6" y="10" width="40" height="36" rx="8" fill="${color}" stroke="${accent}" stroke-width="2"/>
-      <circle cx="18" cy="26" r="5" fill="white" stroke="#2d1b4e" stroke-width="1.5"/>
-      <circle cx="34" cy="26" r="5" fill="white" stroke="#2d1b4e" stroke-width="1.5"/>
-      <line x1="23" y1="26" x2="29" y2="26" stroke="#2d1b4e" stroke-width="1.5"/>
-    `;
-  } else if (shape === "round") {
-    body = `
-      ${[0, 45, 90, 135, 180, 225, 270, 315]
-        .map((a) => `<line x1="26" y1="26" x2="${26 + 20 * Math.cos((a * Math.PI) / 180)}" y2="${26 + 20 * Math.sin((a * Math.PI) / 180)}" stroke="${color}" stroke-width="3" stroke-linecap="round"/>`)
-        .join("")}
-      <circle cx="26" cy="26" r="18" fill="${color}" stroke="${accent}" stroke-width="2"/>
-      <circle cx="19" cy="24" r="3" fill="#2d1b4e"/><circle cx="33" cy="24" r="3" fill="#2d1b4e"/>
-      <path d="M18 32 Q26 40 34 32" fill="none" stroke="#2d1b4e" stroke-width="2"/>
-    `;
-  } else if (shape === "star") {
-    body = `
-      <polygon points="26,4 31,18 46,18 34,28 39,42 26,33 13,42 18,28 6,18 21,18" fill="${color}" stroke="${accent}" stroke-width="2"/>
-      <circle cx="20" cy="24" r="2.5" fill="#2d1b4e"/><circle cx="32" cy="24" r="2.5" fill="#2d1b4e"/>
-    `;
-  } else if (shape === "blob") {
-    body = `
-      <path d="M26 8 C8 8 4 28 10 38 C6 48 16 50 26 46 C36 52 48 44 44 30 C50 16 38 6 26 8 Z" fill="${color}" stroke="${accent}" stroke-width="2"/>
-      <ellipse cx="19" cy="26" rx="3" ry="4" fill="#2d1b4e"/><ellipse cx="33" cy="26" rx="3" ry="4" fill="#2d1b4e"/>
-    `;
-  } else if (shape === "hexagon") {
-    body = `
-      <polygon points="26,4 44,14 44,34 26,44 8,34 8,14" fill="${color}" stroke="${accent}" stroke-width="2"/>
-      <circle cx="20" cy="24" r="3" fill="#2d1b4e"/><circle cx="32" cy="24" r="3" fill="#2d1b4e"/>
-      <path d="M20 32 Q26 36 32 32" fill="none" stroke="#2d1b4e" stroke-width="1.5"/>
-    `;
-  } else if (shape === "diamond") {
-    body = `
-      <polygon points="26,6 42,26 26,46 10,26" fill="${color}" stroke="${accent}" stroke-width="2"/>
-      <circle cx="20" cy="24" r="2.5" fill="#2d1b4e"/><circle cx="32" cy="24" r="2.5" fill="#2d1b4e"/>
-    `;
-  } else {
-    body = `
-      <path d="M26 6 L42 14 L42 30 C42 40 26 48 26 48 C26 48 10 40 10 30 L10 14 Z" fill="${color}" stroke="${accent}" stroke-width="2"/>
-      <circle cx="20" cy="20" r="2" fill="#2d1b4e"/><circle cx="32" cy="20" r="2" fill="#2d1b4e"/>
-    `;
-  }
-
-  return `<svg viewBox="0 0 52 52" width="${size}" height="${size}">${body}</svg>`;
+function personaMetaLabel(p) {
+  if (!p) return "Agent";
+  return `<strong>${escapeHtml(p.name)}</strong> · ${escapeHtml(p.role)}`;
 }
 
 function personaById(id) {
@@ -131,22 +84,23 @@ function renderPersonaGrid() {
     btn.innerHTML = `
       <div class="persona-avatar">${avatarHtml(p)}</div>
       <div class="persona-info">
-        <h3>${p.emoji} ${p.name}${badge}</h3>
-        <p>${p.role} — ${p.tagline}</p>
+        <h3>${p.name}${badge}</h3>
+        <p>${p.role}</p>
       </div>`;
     btn.addEventListener("click", () => {
       if (state.mode === "solo") {
         state.selectedId = p.id;
         renderPersonaGrid();
-        renderStage();
+        renderActiveAgents();
       }
     });
     grid.appendChild(btn);
   });
 }
 
-function renderStage() {
-  stageChars.innerHTML = "";
+function renderActiveAgents() {
+  if (!activeAgents) return;
+  activeAgents.innerHTML = "";
   let ids = state.mode === "solo" ? [state.selectedId] : state.activeIds;
   if ((!ids.length && state.mode !== "solo") || state.mode === "board") {
     ids = state.personas.slice(0, 5).map((p) => p.id);
@@ -154,22 +108,25 @@ function renderStage() {
   ids.forEach((id) => {
     const p = personaById(id);
     if (!p) return;
-    const div = document.createElement("div");
-    div.className = "stage-char";
-    div.dataset.id = id;
-    div.innerHTML = `${avatarHtml(p, 64)}<span class="char-name">${p.name}</span>`;
-    stageChars.appendChild(div);
+    const chip = document.createElement("div");
+    chip.className = "agent-chip";
+    chip.dataset.id = id;
+    chip.style.setProperty("--persona-color", p.color);
+    chip.innerHTML = `
+      <div class="chip-avatar">${avatarHtml(p, 24)}</div>
+      <span>${escapeHtml(p.name)}</span>`;
+    activeAgents.appendChild(chip);
   });
 }
 
 function setTalking(personaId) {
-  document.querySelectorAll(".stage-char").forEach((el) => {
-    el.classList.toggle("talking", el.dataset.id === personaId);
+  document.querySelectorAll(".agent-chip").forEach((el) => {
+    el.classList.toggle("is-active", el.dataset.id === personaId);
   });
 }
 
 function clearTalking() {
-  document.querySelectorAll(".stage-char").forEach((el) => el.classList.remove("talking"));
+  document.querySelectorAll(".agent-chip").forEach((el) => el.classList.remove("is-active"));
 }
 
 function addMessage({ role, personaId, content, phase, streaming = false }) {
@@ -180,10 +137,10 @@ function addMessage({ role, personaId, content, phase, streaming = false }) {
     const p = personaById(personaId);
     const phaseLabel = phase && phase !== "response" ? `<span class="phase-tag">${phase}</span>` : "";
     div.innerHTML = `
-      <div class="mini-avatar">${p ? avatarHtml(p, 36) : ""}</div>
+      <div class="mini-avatar">${p ? avatarHtml(p, 32) : ""}</div>
       <div>
-        <div class="meta" style="--persona-color:${p?.color || "#666"}">${p?.emoji || ""} ${p?.name || "Crew"}${phaseLabel}</div>
-        <div class="bubble${streaming ? " streaming" : ""}" style="--persona-color:${p?.color || "#666"}">${escapeHtml(content)}</div>
+        <div class="meta" style="--persona-color:${p?.color || "#666"}">${personaMetaLabel(p)}${phaseLabel}</div>
+        <div class="bubble${streaming ? " streaming" : ""}">${escapeHtml(content)}</div>
       </div>`;
   } else {
     div.innerHTML = `<div class="bubble">${escapeHtml(content)}</div>`;
@@ -200,10 +157,10 @@ function startStreamBubble(personaId, phase) {
   const p = personaById(personaId);
   const phaseLabel = phase && phase !== "response" ? `<span class="phase-tag">${phase}</span>` : "";
   div.innerHTML = `
-    <div class="mini-avatar">${p ? avatarHtml(p, 36) : ""}</div>
+    <div class="mini-avatar">${p ? avatarHtml(p, 32) : ""}</div>
     <div>
-      <div class="meta" style="--persona-color:${p?.color || "#666"}">${p?.emoji || ""} ${p?.name || "Crew"}${phaseLabel}</div>
-      <div class="bubble streaming" style="--persona-color:${p?.color || "#666"}"></div>
+      <div class="meta" style="--persona-color:${p?.color || "#666"}">${personaMetaLabel(p)}${phaseLabel}</div>
+      <div class="bubble streaming"></div>
     </div>`;
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight;
@@ -234,10 +191,10 @@ function setMode(mode) {
     btn.classList.toggle("active", btn.dataset.mode === mode);
   });
   const hints = {
-    solo: "Pick a persona to chat one-on-one.",
-    roundtable: "The crew hears you — relevant personas chime in.",
-    project: "Captain leads; tasks land on the Board.",
-    board: "Drag tasks between columns. Run a Project first to populate.",
+    solo: "Select an agent for one-on-one chat.",
+    roundtable: "Relevant agents respond based on your message.",
+    project: "Captain leads; tasks appear on the board.",
+    board: "Drag tasks between columns. Run a project first to populate.",
   };
   modeHint.textContent = hints[mode] || "";
   projectsPanel.hidden = mode !== "project" && mode !== "board";
@@ -246,7 +203,7 @@ function setMode(mode) {
   crewPanel.hidden = mode === "board";
   if (mode === "board") loadBoard();
   renderPersonaGrid();
-  renderStage();
+  renderActiveAgents();
 }
 
 // --- Voice ---
@@ -345,7 +302,7 @@ function handleStreamEvent(eventType, data) {
     return;
   }
   if (eventType === "tool") {
-    appendStreamToken(`\n🔧 ${data.name}...\n`);
+    appendStreamToken(`\n[${data.name}]...\n`);
     return;
   }
   if (eventType === "done") {
@@ -451,7 +408,7 @@ function renderTaskCard(task) {
   if (p) card.style.setProperty("--persona-color", p.color);
   card.innerHTML = `
     <div class="task-title">${escapeHtml(task.title)}</div>
-    <div class="task-assignee">${p ? `${p.emoji} ${p.name}` : task.assignee}</div>`;
+    <div class="task-assignee">${p ? p.name : task.assignee}</div>`;
   card.addEventListener("dragstart", (e) => {
     e.dataTransfer.setData("text/task-id", task.id);
     e.dataTransfer.setData("text/project-id", state.projectId);
@@ -488,7 +445,7 @@ async function loadPersonas() {
   const data = await res.json();
   state.personas = data.personas;
   renderPersonaGrid();
-  renderStage();
+  renderActiveAgents();
 }
 
 async function loadProjects() {
@@ -584,7 +541,7 @@ async function loadDocs() {
     const li = document.createElement("li");
     li.innerHTML = `<span>${doc.filename} (${doc.chunks} chunks)</span>`;
     const btn = document.createElement("button");
-    btn.textContent = "✕";
+    btn.textContent = "Remove";
     btn.addEventListener("click", async () => {
       await fetch(`/api/docs/${doc.id}`, { method: "DELETE" });
       loadDocs();
@@ -622,11 +579,11 @@ async function loadAppStatus() {
   if (mode === "demo") {
     statusBanner.className = "status-banner demo";
     statusBanner.innerHTML =
-      "🎭 <strong>Demo mode</strong> — you're good to go! Chat, projects, and board all work. " +
-      "Click ⚙️ to connect Ollama or an API for full AI.";
+      "<strong>Demo mode</strong> — chat, projects, and board work without setup. " +
+      "Open Settings to connect Ollama or a cloud API.";
   } else {
     statusBanner.className = "status-banner live";
-    statusBanner.innerHTML = `✨ <strong>${mode === "ollama" ? "Ollama" : "Cloud AI"}</strong> connected — full power enabled.`;
+    statusBanner.innerHTML = `<strong>${mode === "ollama" ? "Ollama" : "Cloud AI"}</strong> connected.`;
   }
 
   if (providerSelect) providerSelect.value = info.active === "demo" ? "demo" : (info.ollama_available ? "auto" : "demo");
@@ -654,6 +611,22 @@ settingsForm?.addEventListener("submit", async (e) => {
   loadAppStatus();
 });
 
+// --- Theme toggle ---
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem("persona-theme", theme);
+}
+
+function initThemeToggle() {
+  const btn = $("#theme-toggle");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    applyTheme(next);
+  });
+}
+
 // --- Events ---
 
 document.querySelectorAll(".mode-btn").forEach((btn) => {
@@ -676,6 +649,7 @@ input.addEventListener("keydown", (e) => {
 });
 
 setupVoiceInput();
+initThemeToggle();
 loadAppStatus();
 loadWorkspaces().then(() => {
   loadPersonas();
