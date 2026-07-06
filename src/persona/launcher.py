@@ -7,6 +7,7 @@ import socket
 import sys
 import threading
 import time
+import traceback
 import webbrowser
 from pathlib import Path
 
@@ -14,6 +15,13 @@ import httpx
 import uvicorn
 
 from persona.config import Settings, get_settings
+
+
+def _log_error(exc: BaseException) -> None:
+    log_dir = Path.home() / ".persona"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    path = log_dir / "error.log"
+    path.write_text(traceback.format_exc(), encoding="utf-8")
 
 
 def ollama_available(settings: Settings) -> bool:
@@ -25,7 +33,6 @@ def ollama_available(settings: Settings) -> bool:
 
 
 def resolve_provider_mode(settings: Settings) -> str:
-    """Pick the best available provider: explicit > ollama > openai > demo."""
     mode = (settings.provider or "auto").lower()
     if mode == "demo":
         return "demo"
@@ -55,7 +62,7 @@ def find_free_port(preferred: int = 8765) -> int:
         return sock.getsockname()[1]
 
 
-def wait_for_server(host: str, port: int, timeout: float = 20.0) -> bool:
+def wait_for_server(host: str, port: int, timeout: float = 30.0) -> bool:
     url = f"http://{host}:{port}/api/status"
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -64,30 +71,30 @@ def wait_for_server(host: str, port: int, timeout: float = 20.0) -> bool:
                 return True
         except Exception:
             pass
-        time.sleep(0.2)
+        time.sleep(0.25)
     return False
 
 
 def _create_uvicorn_app():
-    """Import app object directly — required for PyInstaller frozen builds."""
     from persona.web.server import create_app
 
     return create_app()
 
 
-def _run_uvicorn_server(host: str, port: int) -> None:
-    app = _create_uvicorn_app()
-    uvicorn.run(app, host=host, port=port, log_level="warning")
+def _open_browser_when_ready(host: str, port: int, url: str) -> None:
+    if wait_for_server(host, port):
+        webbrowser.open(url)
 
 
 def run_standalone(*, window: bool = False, port: int | None = None) -> None:
-    """Launch Persona as a standalone app — opens UI automatically."""
+    """Launch Persona — browser opens, server runs on main thread (Windows-safe)."""
     if getattr(sys, "frozen", False):
         os.chdir(Path(sys.executable).parent)
 
     settings = get_settings()
     host = "127.0.0.1"
-    port = port or find_free_port(settings.web_port)
+    if port is None:
+        port = int(os.environ["PERSONA_WEB_PORT"]) if os.environ.get("PERSONA_WEB_PORT") else find_free_port(settings.web_port)
     provider = resolve_provider_mode(settings)
 
     os.environ["PERSONA_PROVIDER"] = provider
@@ -95,62 +102,43 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
 
     url = f"http://{host}:{port}"
 
-    server = threading.Thread(
-        target=_run_uvicorn_server,
-        args=(host, port),
-        daemon=True,
-    )
-    server.start()
-
-    if not wait_for_server(host, port):
-        raise RuntimeError(
-            f"Persona server did not start on port {port}. "
-            f"Check {Path.home() / '.persona' / 'error.log'}"
-        )
-
     if window:
-        _open_window(url)
-    else:
-        webbrowser.open(url)
-        if not getattr(sys, "frozen", False):
-            _print_banner(url, provider)
-
-    try:
-        while server.is_alive():
-            time.sleep(0.5)
-    except KeyboardInterrupt:
-        if not getattr(sys, "frozen", False):
-            print("\nPersona closed.")
-
-
-def _open_window(url: str) -> None:
-    try:
-        import webview
-
-        webview.create_window("Persona", url, width=1200, height=800, min_size=(800, 600))
-        webview.start()
-    except ImportError:
-        webbrowser.open(url)
         try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            pass
+            import webview
+
+            threading.Thread(
+                target=lambda: (wait_for_server(host, port) and webview.create_window(
+                    "Persona", url, width=1200, height=800
+                )),
+                daemon=True,
+            ).start()
+        except ImportError:
+            threading.Thread(
+                target=_open_browser_when_ready, args=(host, port, url), daemon=True
+            ).start()
+    else:
+        threading.Thread(
+            target=_open_browser_when_ready, args=(host, port, url), daemon=True
+        ).start()
+
+    if not getattr(sys, "frozen", False):
+        _print_banner(url, provider)
+
+    try:
+        app = _create_uvicorn_app()
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+    except Exception as exc:
+        _log_error(exc)
+        raise
 
 
 def _print_banner(url: str, provider: str) -> None:
     mode = {
-        "demo": "Demo (ready instantly — no AI install needed)",
-        "ollama": "Ollama (local AI)",
+        "demo": "Demo",
+        "ollama": "Ollama",
         "openai": "Cloud API",
     }.get(provider, provider)
-
-    print()
-    print("  Persona is running!")
-    print(f"  -> {url}")
-    print(f"  -> Mode: {mode}")
-    print("  -> Press Ctrl+C to quit")
-    print()
+    print(f"\n  Persona running at {url} ({mode})\n  Press Ctrl+C to quit\n")
 
 
 def main() -> None:

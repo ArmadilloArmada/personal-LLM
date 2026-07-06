@@ -4,7 +4,7 @@
 from pathlib import Path
 import os
 
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 root = Path(SPECPATH)
 src_static = root / "src" / "persona" / "web" / "static"
@@ -47,7 +47,8 @@ a = Analysis(
     [str(root / "persona_exe.py")],
     pathex=[str(root / "src")],
     binaries=[],
-    datas=[(str(src_static), "persona" + os.sep + "web" + os.sep + "static")],
+    datas=[(str(src_static), "persona" + os.sep + "web" + os.sep + "static")]
+    + collect_data_files("certifi"),
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
