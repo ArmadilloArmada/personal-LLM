@@ -53,6 +53,26 @@ def test_open_window_pywebview_then_browser_fallback(monkeypatch):
     keepalive.assert_called_once()
 
 
+def test_find_free_port_uses_bind(monkeypatch):
+    host = "127.0.0.1"
+    assert launcher._can_bind_port(host, launcher.find_free_port(49152, host))
+
+
+def test_wait_for_server_checks_health_first(monkeypatch):
+    calls: list[str] = []
+
+    class FakeResponse:
+        status_code = 200
+
+    def fake_get(url: str, timeout: float = 1.0):
+        calls.append(url)
+        return FakeResponse()
+
+    monkeypatch.setattr(launcher.httpx, "get", fake_get)
+    assert launcher.wait_for_server("127.0.0.1", 8765, timeout=0.5) is True
+    assert calls[0].endswith("/api/health")
+
+
 def test_try_pywebview_fast_exit_on_frozen_windows(monkeypatch):
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "platform", "win32", raising=False)
