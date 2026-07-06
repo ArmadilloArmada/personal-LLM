@@ -99,6 +99,9 @@ class Crew:
     def refresh_context(self) -> None:
         self.team_workspace, self.doc_store = build_agent_context(self.settings)
 
+    def refresh_provider(self) -> None:
+        self.provider = get_provider(self.settings)
+
     def solo(self, persona_id: str, message: str) -> CrewResult:
         persona = get_persona(persona_id)
         agent = self._make_agent(persona)

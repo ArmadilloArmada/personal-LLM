@@ -125,6 +125,15 @@ class Agent:
         schemas = tool_schemas(self.tools) if self.tools else None
 
         for _ in range(self.settings.max_tool_rounds):
+            if not schemas:
+                parts: list[str] = []
+                for chunk in self.provider.chat_stream(self.messages):
+                    parts.append(chunk)
+                    yield {"type": "token", "text": chunk}
+                self.messages.append(Message(role="assistant", content="".join(parts)))
+                yield {"type": "done", "persona_id": self.persona.id}
+                return
+
             response = self.provider.chat(self.messages, tools=schemas)
             assistant = response.message
             self.messages.append(assistant)
@@ -140,7 +149,12 @@ class Agent:
                 yield {"type": "tool", "name": tc.name, "args": tc.arguments}
                 if self.on_tool_call:
                     self.on_tool_call(tc.name, tc.arguments)
-                result = run_tool(self.tools, tc.name, tc.arguments)
+                result = run_tool(
+                    self.tools,
+                    tc.name,
+                    tc.arguments,
+                    allow_shell=self.settings.allow_shell_commands,
+                )
                 if self.on_tool_result:
                     self.on_tool_result(tc.name, result)
                 yield {"type": "tool_result", "name": tc.name, "result": result[:300]}

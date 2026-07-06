@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import os
-import sys
-
 import httpx
 
 from persona.config import Settings
@@ -44,10 +41,7 @@ def ollama_ready(settings: Settings) -> bool:
 
 
 def resolve_provider_mode(settings: Settings) -> str:
-    """Pick provider — frozen Windows builds default to demo for instant startup."""
-    if getattr(sys, "frozen", False) and not os.environ.get("PERSONA_PROVIDER"):
-        return "demo"
-
+    """Pick the best provider from saved settings and live availability."""
     mode = (settings.provider or "auto").lower()
     if mode == "demo":
         return "demo"
