@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "persona"
-version = "0.6.2"
-description = "Persona — cartoon AI crew with specialized agents for teams and individuals"
+version = "0.7.0"
+description = "Persona — standalone AI agent app for teams and individuals"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"

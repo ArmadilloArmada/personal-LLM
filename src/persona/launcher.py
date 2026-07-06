@@ -118,15 +118,30 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
     url = f"http://{host}:{port}"
 
     if window:
-        threading.Thread(
-            target=lambda: wait_for_server(host, port) and _open_window(url),
-            daemon=True,
-        ).start()
-    else:
-        threading.Thread(
-            target=lambda: wait_for_server(host, port) and webbrowser.open(url),
-            daemon=True,
-        ).start()
+        server = threading.Thread(target=_run_uvicorn, args=(host, port), daemon=True)
+        server.start()
+        _log_startup("launcher: waiting for server (window mode)")
+        if not wait_for_server(host, port):
+            message = (
+                "Persona could not start its local server.\n\n"
+                "Check %USERPROFILE%\\.persona\\error.log and startup.log"
+            )
+            _log_startup("launcher: server did not respond in time")
+            _log_error(RuntimeError(f"Server did not respond on {host}:{port}"))
+            if getattr(sys, "frozen", False):
+                if not os.environ.get("PERSONA_NO_MSGBOX"):
+                    _show_windows_error(message)
+                sys.exit(1)
+            print("Persona failed to start.", file=sys.stderr)
+            sys.exit(1)
+        _log_startup("launcher: opening app window")
+        _open_window(url)
+        return
+
+    threading.Thread(
+        target=lambda: wait_for_server(host, port) and webbrowser.open(url),
+        daemon=True,
+    ).start()
 
     if not getattr(sys, "frozen", False):
         _print_banner(url, provider)
@@ -140,13 +155,13 @@ def _open_window(url: str) -> None:
 
         webview.create_window("Persona", url, width=1200, height=800, min_size=(800, 600))
         webview.start()
-    except ImportError:
+    except Exception:
         webbrowser.open(url)
         try:
             while True:
                 time.sleep(1)
         except KeyboardInterrupt:
-            print("\nPersona closed.")
+            pass
 
 
 def _print_banner(url: str, provider: str) -> None:

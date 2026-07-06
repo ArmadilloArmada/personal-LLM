@@ -1,41 +1,33 @@
 # Persona
 
-**Persona** is a Windows cartoon AI crew app — unzip, double-click, and chat. No Python, no Ollama, no API keys required to get started.
+**Persona** is a standalone Windows AI agent app — download, unzip, double-click. No Python, no setup, no API keys required.
 
-## Windows download
+## Download (Windows)
 
 **https://github.com/ArmadilloArmada/personal-LLM/releases/latest/download/Persona-Windows-portable.zip**
 
 1. Download and **unzip the whole folder**
-2. Open the `Persona` folder
-3. Double-click **`Persona.exe`** (or `Run Persona.bat`)
-4. Your browser opens automatically
+2. Double-click **`Persona.exe`**
+3. The app opens in its own window
+
+Optional: run **`Create Desktop Shortcut.bat`** to add Persona to your desktop.
 
 See [DOWNLOAD.md](DOWNLOAD.md) if it won't open.
 
-## What you get out of the box
+## What you get
 
+- **Modern dark UI** with light mode toggle
 - **Demo mode** — works instantly, no AI install needed
-- **5 cartoon personas** — Byte, Sunny, Nova, Sketch, Captain
-- **Solo, Group, Project, Board** — full app experience
-- **Team workspaces** + **company docs** + **custom personas**
+- **5 built-in agents** — Byte, Sunny, Nova, Sketch, Captain
+- **Solo, Group, Project, Board** modes
+- **Team workspaces**, **knowledge base**, **custom agents**
 
 ## Upgrade to full AI (optional)
 
-When you want real LLM power on Windows:
-
 1. Install [Ollama](https://ollama.com) → `ollama pull llama3.2`
-2. Restart Persona — it **auto-detects** Ollama
+2. Restart Persona — it auto-detects Ollama
 
-Or set a cloud API key in the app settings (⚙️).
-
-## Features
-
-- Custom personas & avatars for your company
-- Upload docs — personas search them (RAG)
-- Kanban project board with drag-and-drop
-- Voice input & spoken replies
-- Streaming responses
+Or set a cloud API key in Settings inside the app.
 
 ## Data
 

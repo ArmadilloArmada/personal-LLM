@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e ".[desktop]"
           pip install pyinstaller
 
       - name: Build .exe
@@ -32,6 +32,7 @@ jobs:
         run: |
           copy windows\README.txt dist\Persona\README.txt
           copy "windows\Run Persona.bat" "dist\Persona\Run Persona.bat"
+          copy "windows\Create Desktop Shortcut.bat" "dist\Persona\Create Desktop Shortcut.bat"
 
       - name: Smoke test Persona.exe
         shell: pwsh
