@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "personal-llm"
+version = "0.1.0"
+description = "Personal LLM agent — run locally or via API with tools and memory"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "rich>=13.0",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.4"]
+
+[project.scripts]
+personal-llm = "personal_llm.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/personal_llm"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
