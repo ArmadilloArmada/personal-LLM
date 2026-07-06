@@ -1,9 +1,10 @@
-"""LLM provider abstraction."""
+"""LLM provider abstraction with streaming support."""
 
 from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from typing import Any
 
 import httpx
@@ -20,6 +21,15 @@ class LLMProvider(ABC):
         tools: list[dict[str, Any]] | None = None,
     ) -> LLMResponse:
         ...
+
+    def chat_stream(
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None = None,
+    ) -> Iterator[str]:
+        response = self.chat(messages, tools=tools)
+        content = response.message.content or ""
+        yield content
 
 
 class OllamaProvider(LLMProvider):
@@ -43,7 +53,35 @@ class OllamaProvider(LLMProvider):
         response = self.client.post("/api/chat", json=payload)
         response.raise_for_status()
         data = response.json()
+        return self._parse_response(data)
 
+    def chat_stream(
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None = None,
+    ) -> Iterator[str]:
+        if tools:
+            yield from super().chat_stream(messages, tools=tools)
+            return
+
+        payload: dict[str, Any] = {
+            "model": self.settings.ollama_model,
+            "messages": [m.to_dict() for m in messages],
+            "stream": True,
+        }
+        with self.client.stream("POST", "/api/chat", json=payload) as response:
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if not line:
+                    continue
+                data = json.loads(line)
+                chunk = data.get("message", {}).get("content")
+                if chunk:
+                    yield chunk
+                if data.get("done"):
+                    break
+
+    def _parse_response(self, data: dict[str, Any]) -> LLMResponse:
         msg = data.get("message", {})
         tool_calls = []
         for tc in msg.get("tool_calls") or []:
@@ -122,6 +160,34 @@ class OpenAIProvider(LLMProvider):
             ),
             finish_reason=choice.get("finish_reason"),
         )
+
+    def chat_stream(
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None = None,
+    ) -> Iterator[str]:
+        if tools:
+            yield from super().chat_stream(messages, tools=tools)
+            return
+
+        payload: dict[str, Any] = {
+            "model": self.settings.openai_model,
+            "messages": [m.to_dict() for m in messages],
+            "stream": True,
+        }
+        with self.client.stream("POST", "/chat/completions", json=payload) as response:
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if not line or not line.startswith("data: "):
+                    continue
+                payload_text = line[6:]
+                if payload_text.strip() == "[DONE]":
+                    break
+                data = json.loads(payload_text)
+                delta = data["choices"][0].get("delta", {})
+                chunk = delta.get("content")
+                if chunk:
+                    yield chunk
 
 
 def get_provider(settings: Settings) -> LLMProvider:

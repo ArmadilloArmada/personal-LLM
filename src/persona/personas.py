@@ -14,11 +14,13 @@ class Persona:
     color: str
     accent: str
     emoji: str
-    shape: str  # avatar shape hint for UI: round, square, star, blob, shield
+    shape: str  # avatar shape hint for UI: round, square, star, blob, shield, hexagon, diamond
     personality: str
     specialties: list[str]
     tools: list[str]
     system_prompt: str
+    is_custom: bool = False
+    company: str = ""
 
 
 BASE_GUIDELINES = """
@@ -189,6 +191,8 @@ def persona_to_dict(p: Persona) -> dict:
         "personality": p.personality,
         "specialties": p.specialties,
         "tools": p.tools,
+        "is_custom": p.is_custom,
+        "company": p.company,
     }
 
 
@@ -197,7 +201,7 @@ def route_personas(message: str) -> list[str]:
     text = message.lower()
     scores: dict[str, int] = {pid: 0 for pid in PERSONAS}
 
-    keywords = {
+    keywords: dict[str, list[str]] = {
         "byte": ["code", "bug", "debug", "python", "api", "git", "deploy", "function", "script"],
         "sunny": ["feel", "chat", "talk", "help me decide", "motivat", "stress", "hello", "hi"],
         "nova": ["research", "compare", "analyze", "fact", "source", "study", "report", "data"],
@@ -205,7 +209,17 @@ def route_personas(message: str) -> list[str]:
         "captain": ["project", "plan", "roadmap", "timeline", "team", "organize", "delegate"],
     }
 
+    for persona in PERSONAS.values():
+        if persona.is_custom:
+            for specialty in persona.specialties:
+                if specialty.lower() in text:
+                    scores[persona.id] = scores.get(persona.id, 0) + 2
+            if persona.name.lower() in text or persona.role.lower() in text:
+                scores[persona.id] = scores.get(persona.id, 0) + 2
+
     for pid, words in keywords.items():
+        if pid not in PERSONAS:
+            continue
         for word in words:
             if word in text:
                 scores[pid] += 2

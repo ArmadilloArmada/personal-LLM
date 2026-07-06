@@ -42,8 +42,14 @@ class Settings(BaseSettings):
         return path
 
     @property
-    def projects_dir(self) -> Path:
-        path = self.data_dir / "projects"
+    def custom_personas_dir(self) -> Path:
+        path = self.data_dir / "personas"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    @property
+    def workspace_personas_dir(self) -> Path:
+        path = self.workspace / "personas"
         path.mkdir(parents=True, exist_ok=True)
         return path
 

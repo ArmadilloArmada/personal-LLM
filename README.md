@@ -1,68 +1,89 @@
-# Persona
+# Persona v0.3
 
-**Persona** is a cartoon AI crew you can chat with solo, as a group, or hand a full project to. Each persona has its own personality, specialty, and tools — built for individuals and teams who want specialized agents that work together.
+**Persona** is a cartoon AI crew for individuals and companies — specialized agents that work solo, as a group, or take over projects together.
 
-![Persona crew](https://img.shields.io/badge/crew-5%20personas-ff6b9d)
+## What's new in v0.3
+
+- **Custom personas** — YAML/JSON definitions for company-specific agents
+- **Streaming responses** — real-time token streaming in the web UI (SSE)
+- **Project board** — drag-and-drop kanban (Backlog → In Progress → Review → Done)
+- **Voice** — mic input (Web Speech API) + optional spoken replies
 
 ## Meet the crew
 
 | Persona | Role | Specialty |
 |---------|------|-----------|
-| 💻 **Byte** | Programmer | Code, debug, ship software |
-| ☀️ **Sunny** | Conversationalist | Chat, brainstorm, motivate |
-| 🔭 **Nova** | Researcher | Research, analysis, fact-finding |
-| 🎨 **Sketch** | Creative | Writing, branding, storytelling |
-| 🧭 **Captain** | Project Lead | Plans projects, delegates to the crew |
+| 💻 **Byte** | Programmer | Code, debug, ship |
+| ☀️ **Sunny** | Conversationalist | Chat, motivate |
+| 🔭 **Nova** | Researcher | Research, analysis |
+| 🎨 **Sketch** | Creative | Writing, branding |
+| 🧭 **Captain** | Project Lead | Plans, delegates |
 
-## Modes
-
-- **Solo** — Talk one-on-one with any persona
-- **Group** — Ask the crew; relevant personas chime in (roundtable)
-- **Project** — Captain leads: plans, delegates, crew executes, Captain summarizes
+Add your own — e.g. **Ledger** the Accountant for Acme Corp (see `personas/example-ledger.yaml`).
 
 ## Quick start
 
 ```bash
-# Install
-python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
-
-# Pull a local model (https://ollama.com)
 ollama pull llama3.2
-
-# Launch the interactive app 🎭
 persona serve
-# → Open http://127.0.0.1:8765
+# → http://127.0.0.1:8765
 ```
 
-## Interactive web app
+## Modes
 
-The web UI features cartoon SVG avatars, a stage where personas animate when talking, speech bubbles, and mode switching (Solo / Group / Project).
+| Mode | What it does |
+|------|----------------|
+| **Solo** | One-on-one with any persona |
+| **Group** | Roundtable — relevant personas respond |
+| **Project** | Captain plans, crew executes, tasks hit the board |
+| **Board** | Drag tasks between kanban columns |
+
+## Custom personas
+
+Drop YAML files in `~/.persona/personas/` or `./personas/`:
+
+```yaml
+id: ledger
+name: Ledger
+role: Accountant
+company: Acme Corp
+emoji: "📊"
+color: "#10B981"
+shape: diamond
+specialties: [finance, budget]
+instructions: You are Ledger, our friendly finance expert...
+```
 
 ```bash
-persona serve --port 8765
+persona personas list
+persona personas add personas/example-ledger.yaml
+persona personas remove ledger
 ```
+
+Or use the **➕ Persona** button in the web app.
+
+## Voice
+
+- **🎤 Mic** — speak your message (Chrome/Edge/Safari)
+- **🔊 Toggle** — personas read replies aloud
 
 ## CLI
 
 ```bash
-persona crew                              # List the crew
-persona chat --persona byte                 # Chat with Byte
-persona chat -P sunny "I need motivation" # One-shot with Sunny
-persona group "Compare React vs Vue"      # Roundtable
-persona group "Build a todo app" --mode project  # Project mode
-persona status                            # Config + connectivity
+persona serve                    # Interactive web app
+persona chat -P byte             # Terminal chat
+persona group "Plan a SaaS app" --mode project
+persona personas list
+persona crew
+persona status
 ```
 
 ## Configuration
 
-Copy `.env.example` to `.env`:
-
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PERSONA_PROVIDER` | `ollama` | `ollama` or `openai` |
-| `PERSONA_OLLAMA_MODEL` | `llama3.2` | Local model |
-| `PERSONA_OPENAI_API_KEY` | — | API key for cloud |
 | `PERSONA_WEB_PORT` | `8765` | Web app port |
 | `PERSONA_WORKSPACE` | `.` | Agent workspace |
 
@@ -71,21 +92,14 @@ Copy `.env.example` to `.env`:
 ```
 persona/
 ├── src/persona/
-│   ├── personas.py    # Crew definitions
-│   ├── crew.py        # Group & project orchestration
-│   ├── agent.py       # Per-persona agent loop
-│   ├── cli.py         # Terminal commands
-│   └── web/
-│       ├── server.py  # FastAPI backend
-│       └── static/    # Cartoon interactive UI
+│   ├── personas.py      # Built-in crew
+│   ├── custom.py        # Custom persona loader
+│   ├── crew.py          # Orchestration + board
+│   ├── projects.py      # Kanban task logic
+│   └── web/static/      # Cartoon UI
+├── personas/            # Workspace custom personas
 └── tests/
 ```
-
-## Data
-
-- Memories: `~/.persona/memory.json`
-- Sessions: `~/.persona/sessions/`
-- Projects: `~/.persona/projects/`
 
 ## Development
 

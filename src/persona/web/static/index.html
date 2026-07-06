@@ -21,29 +21,33 @@
         <span class="logo-icon">🎭</span>
         <div>
           <h1>Persona</h1>
-          <p class="tagline">Your cartoon AI crew — ask one, ask all, or hand off a project.</p>
+          <p class="tagline">Your cartoon AI crew — solo, group, project, or board.</p>
         </div>
       </div>
-      <div class="mode-switch" role="tablist">
-        <button class="mode-btn active" data-mode="solo" role="tab">Solo</button>
-        <button class="mode-btn" data-mode="roundtable" role="tab">Group</button>
-        <button class="mode-btn" data-mode="project" role="tab">Project</button>
+      <div class="header-actions">
+        <button type="button" class="icon-btn" id="voice-toggle" title="Toggle voice replies">🔊</button>
+        <button type="button" class="icon-btn" id="add-persona-btn" title="Add custom persona">➕ Persona</button>
+        <div class="mode-switch" role="tablist">
+          <button class="mode-btn active" data-mode="solo" role="tab">Solo</button>
+          <button class="mode-btn" data-mode="roundtable" role="tab">Group</button>
+          <button class="mode-btn" data-mode="project" role="tab">Project</button>
+          <button class="mode-btn" data-mode="board" role="tab">Board</button>
+        </div>
       </div>
     </header>
 
     <main class="main">
-      <aside class="stage-panel">
+      <aside class="stage-panel" id="crew-panel">
         <h2 class="panel-title">The Crew</h2>
         <p class="panel-hint" id="mode-hint">Pick a persona to chat one-on-one.</p>
         <div class="persona-grid" id="persona-grid"></div>
-
         <section class="projects-panel" id="projects-panel" hidden>
           <h3>Active Projects</h3>
           <ul id="project-list"></ul>
         </section>
       </aside>
 
-      <section class="chat-panel">
+      <section class="chat-panel" id="chat-panel">
         <div class="stage" id="stage">
           <div class="stage-floor"></div>
           <div class="stage-characters" id="stage-characters"></div>
@@ -52,28 +56,47 @@
         <div class="messages" id="messages">
           <div class="welcome-bubble">
             <h3>Welcome aboard! 👋</h3>
-            <p>Meet your crew: <strong>Byte</strong> codes, <strong>Sunny</strong> chats,
-              <strong>Nova</strong> researches, <strong>Sketch</strong> creates, and
-              <strong>Captain</strong> runs projects.</p>
-            <p>Try: <em>"Help me plan a todo app"</em> in Project mode, or ask Byte to review some code in Solo.</p>
+            <p>Meet your crew — or <strong>add your own</strong> company personas with the ➕ button.</p>
+            <p>🎤 Tap the mic to talk. Enable 🔊 for spoken replies. Responses stream in real time.</p>
           </div>
         </div>
 
         <form class="composer" id="composer">
-          <textarea
-            id="input"
-            rows="2"
-            placeholder="Ask your persona or crew..."
-            autocomplete="off"
-          ></textarea>
+          <button type="button" class="mic-btn" id="mic-btn" title="Voice input">🎤</button>
+          <textarea id="input" rows="2" placeholder="Ask your persona or crew..." autocomplete="off"></textarea>
           <button type="submit" id="send-btn" class="send-btn">
             <span class="send-label">Send</span>
             <span class="send-icon">➤</span>
           </button>
         </form>
       </section>
+
+      <section class="board-panel" id="board-panel" hidden>
+        <div class="board-header">
+          <h2>Project Board</h2>
+          <select id="board-project-select"></select>
+        </div>
+        <div class="kanban" id="kanban"></div>
+      </section>
     </main>
   </div>
+
+  <dialog id="persona-dialog" class="persona-dialog">
+    <form method="dialog" id="persona-form">
+      <h3>Create Custom Persona</h3>
+      <label>Name <input name="name" required placeholder="Ledger" /></label>
+      <label>Role <input name="role" required placeholder="Accountant" /></label>
+      <label>Company <input name="company" placeholder="Acme Corp" /></label>
+      <label>Tagline <input name="tagline" placeholder="Numbers with personality." /></label>
+      <label>Emoji <input name="emoji" value="🤖" maxlength="4" /></label>
+      <label>Color <input name="color" type="color" value="#6366F1" /></label>
+      <label>Instructions <textarea name="instructions" rows="3" placeholder="You are Ledger, our friendly finance expert..."></textarea></label>
+      <div class="dialog-actions">
+        <button type="button" id="cancel-persona">Cancel</button>
+        <button type="submit" class="send-btn">Create</button>
+      </div>
+    </form>
+  </dialog>
 
   <script src="/static/app.js"></script>
 </body>

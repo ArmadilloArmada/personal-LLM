@@ -1,11 +1,12 @@
-"""Agent loop with persona identity and tool execution."""
+"""Agent loop with persona identity, tool execution, and streaming events."""
 
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from persona.config import Settings
 from persona.llm import get_provider
@@ -89,8 +90,14 @@ class Agent:
         )
 
     def chat(self, user_input: str) -> str:
-        self.messages.append(Message(role="user", content=user_input))
+        parts: list[str] = []
+        for event in self.iter_chat(user_input):
+            if event.get("type") == "token":
+                parts.append(event.get("text", ""))
+        return "".join(parts)
 
+    def iter_chat(self, user_input: str) -> Iterator[dict[str, Any]]:
+        self.messages.append(Message(role="user", content=user_input))
         schemas = tool_schemas(self.tools) if self.tools else None
 
         for _ in range(self.settings.max_tool_rounds):
@@ -99,14 +106,20 @@ class Agent:
             self.messages.append(assistant)
 
             if not assistant.tool_calls:
-                return assistant.content or ""
+                text = assistant.content or ""
+                for chunk in _chunk_text(text):
+                    yield {"type": "token", "text": chunk}
+                yield {"type": "done", "persona_id": self.persona.id}
+                return
 
             for tc in assistant.tool_calls:
+                yield {"type": "tool", "name": tc.name, "args": tc.arguments}
                 if self.on_tool_call:
                     self.on_tool_call(tc.name, tc.arguments)
                 result = run_tool(self.tools, tc.name, tc.arguments)
                 if self.on_tool_result:
                     self.on_tool_result(tc.name, result)
+                yield {"type": "tool_result", "name": tc.name, "result": result[:300]}
                 self.messages.append(
                     Message(
                         role="tool",
@@ -116,7 +129,13 @@ class Agent:
                     )
                 )
 
-        return (
-            "I reached the maximum number of tool rounds. "
-            "Please try a simpler request or continue the conversation."
-        )
+        yield {
+            "type": "token",
+            "text": "I reached the maximum number of tool rounds. Please try a simpler request.",
+        }
+        yield {"type": "done", "persona_id": self.persona.id}
+
+
+def _chunk_text(text: str, size: int = 24) -> Iterator[str]:
+    for i in range(0, len(text), size):
+        yield text[i : i + size]

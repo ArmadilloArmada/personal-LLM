@@ -198,6 +198,47 @@ def memory_cmd(
         raise typer.Exit(1)
 
 
+personas_app = typer.Typer(help="Manage custom personas")
+app.add_typer(personas_app, name="personas")
+
+
+@personas_app.command("list")
+def personas_list() -> None:
+    """List all personas including custom ones."""
+    settings = get_settings()
+    crew = Crew(settings)
+    for p in crew.persona_catalog():
+        tag = " [custom]" if p.get("is_custom") else ""
+        console.print(f"  {p['emoji']} {p['name']} ({p['id']}) — {p['role']}{tag}")
+
+
+@personas_app.command("add")
+def personas_add(
+    file: Path = typer.Argument(..., help="YAML or JSON persona file"),
+) -> None:
+    """Add a custom persona from a YAML/JSON file."""
+    import yaml
+
+    settings = get_settings()
+    crew = Crew(settings)
+    raw = file.read_text(encoding="utf-8")
+    data = json.loads(raw) if file.suffix.lower() == ".json" else yaml.safe_load(raw)
+    persona = crew.add_custom_persona(data if isinstance(data, dict) else data[0])
+    console.print(f"[green]Added persona:[/green] {persona['emoji']} {persona['name']} ({persona['id']})")
+
+
+@personas_app.command("remove")
+def personas_remove(persona_id: str = typer.Argument(..., help="Custom persona id")) -> None:
+    """Remove a custom persona."""
+    settings = get_settings()
+    crew = Crew(settings)
+    if crew.remove_custom_persona(persona_id):
+        console.print(f"[green]Removed persona:[/green] {persona_id}")
+    else:
+        console.print(f"[red]Could not remove {persona_id} (built-in or not found)[/red]")
+        raise typer.Exit(1)
+
+
 @app.command()
 def status() -> None:
     """Show configuration and check provider connectivity."""
