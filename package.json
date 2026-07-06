@@ -1,0 +1,24 @@
+{
+  "name": "persona-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Persona AI + Big Brain — unified standalone app",
+  "scripts": {
+    "dev": "concurrently -n brain,persona -c blue,green \"node scripts/run-brain-api.js\" \"node scripts/run-persona-dev.js\"",
+    "dev:all": "concurrently -n api,ui,persona -c cyan,magenta,green \"node scripts/run-brain-api.js\" \"npm run dev --prefix big-brain/client\" \"node scripts/run-persona-dev.js\"",
+    "dev:brain": "npm run dev:all --prefix big-brain",
+    "dev:persona": "node scripts/run-persona-dev.js",
+    "build": "npm run build --prefix big-brain",
+    "build:brain": "npm run build --prefix big-brain",
+    "test": "python -m pytest persona-app/tests -q",
+    "install:all": "npm install && npm install --prefix big-brain",
+    "install:persona": "pip install -e persona-app[desktop]",
+    "start": "powershell -ExecutionPolicy Bypass -File scripts/start-unified.ps1",
+    "start:all": "powershell -ExecutionPolicy Bypass -File scripts/start-unified.ps1 -WithVite",
+    "postinstall": "npm install --prefix big-brain"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

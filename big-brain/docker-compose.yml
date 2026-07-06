@@ -1,0 +1,20 @@
+services:
+  vault-flow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: 3002
+      VAULT_PATH: /app/data/vault
+      DB_PATH: /app/data/vault-flow.db
+      PERSONA_API_URL: ${PERSONA_API_URL:-http://host.docker.internal:8765}
+      PERSONA_DEFAULT_PERSONA_ID: byte
+    volumes:
+      - vault-data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  vault-data:

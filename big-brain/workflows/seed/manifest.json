@@ -1,0 +1,20 @@
+[
+  {
+    "id": "summarize-note",
+    "name": "Summarize Note",
+    "description": "Send note to Persona and append summary",
+    "icon": "📝"
+  },
+  {
+    "id": "extract-tasks",
+    "name": "Extract Tasks",
+    "description": "Parse checklist items and append as tasks section",
+    "icon": "✅"
+  },
+  {
+    "id": "daily-digest",
+    "name": "Daily Digest",
+    "description": "Build a digest snippet from note metadata via Persona",
+    "icon": "📬"
+  }
+]

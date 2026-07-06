@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+*.pyc
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.env
+.env.*
+*.log
+.DS_Store
+persona-app/build/
+persona-app/dist/
+big-brain/client/dist/
+big-brain/server/dist/
+big-brain/server/node_modules/
