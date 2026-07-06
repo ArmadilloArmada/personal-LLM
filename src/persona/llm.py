@@ -50,8 +50,16 @@ class OllamaProvider(LLMProvider):
         if tools:
             payload["tools"] = tools
 
-        response = self.client.post("/api/chat", json=payload)
-        response.raise_for_status()
+        try:
+            response = self.client.post("/api/chat", json=payload)
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                raise RuntimeError(
+                    f"Ollama model '{self.settings.ollama_model}' is not installed. "
+                    f"Run: ollama pull {self.settings.ollama_model.split(':')[0]}"
+                ) from exc
+            raise
         data = response.json()
         return self._parse_response(data)
 
@@ -191,7 +199,7 @@ class OpenAIProvider(LLMProvider):
 
 
 from persona.demo import DemoProvider
-from persona.providers import ollama_available, resolve_provider_mode
+from persona.providers import ollama_available, ollama_model_installed, ollama_ready, resolve_provider_mode
 
 
 def get_provider(settings: Settings) -> LLMProvider:
@@ -205,10 +213,13 @@ def get_provider(settings: Settings) -> LLMProvider:
 
 def provider_status(settings: Settings) -> dict:
     mode = resolve_provider_mode(settings)
-    check_ollama = mode not in ("demo",)
+    ollama_up = ollama_available(settings)
+    model_ready = ollama_model_installed(settings)
     return {
         "active": mode,
-        "ollama_available": ollama_available(settings) if check_ollama else False,
+        "ollama_available": ollama_up,
+        "ollama_model_ready": model_ready,
+        "ollama_model": settings.ollama_model,
         "openai_configured": bool(settings.openai_api_key),
         "demo_mode": mode == "demo",
     }

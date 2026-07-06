@@ -579,17 +579,30 @@ async function loadAppStatus() {
   if (mode === "demo") {
     statusBanner.className = "status-banner demo";
     statusBanner.innerHTML =
-      "<strong>Demo mode</strong> — chat, projects, and board work without setup. " +
+      "<strong>Demo mode</strong> — works without setup. " +
       "Open Settings to connect Ollama or a cloud API.";
+  } else if (mode === "ollama" && info.ollama_available && !info.ollama_model_ready) {
+    statusBanner.className = "status-banner demo";
+    const model = info.ollama_model || "llama3.2";
+    statusBanner.innerHTML =
+      `<strong>Ollama is running</strong> but model <code>${model}</code> is not installed. ` +
+      `Run <code>ollama pull ${model.split(":")[0]}</code> or switch to Demo in Settings.`;
+  } else if (mode === "ollama") {
+    statusBanner.className = "status-banner live";
+    statusBanner.innerHTML = "<strong>Ollama connected.</strong>";
   } else {
     statusBanner.className = "status-banner live";
-    statusBanner.innerHTML = `<strong>${mode === "ollama" ? "Ollama" : "Cloud AI"}</strong> connected.`;
+    statusBanner.innerHTML = `<strong>${mode === "openai" ? "Cloud AI" : mode}</strong> connected.`;
   }
 
-  if (providerSelect) providerSelect.value = info.active === "demo" ? "demo" : (info.ollama_available ? "auto" : "demo");
+  if (providerSelect) {
+    providerSelect.value = info.active === "demo" ? "demo" : (info.ollama_model_ready ? "auto" : "demo");
+  }
   if (providerStatus) {
     providerStatus.textContent =
-      `Active: ${mode} | Ollama: ${info.ollama_available ? "yes" : "no"} | API key: ${info.openai_configured ? "yes" : "no"}`;
+      `Active: ${mode} | Ollama: ${info.ollama_available ? "yes" : "no"} | ` +
+      `Model: ${info.ollama_model_ready ? "ready" : "missing"} | ` +
+      `API key: ${info.openai_configured ? "yes" : "no"}`;
   }
 }
 

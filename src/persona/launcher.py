@@ -150,18 +150,62 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
 
 
 def _open_window(url: str) -> None:
+    """Open Persona in a native window — pywebview first, then Edge/Chrome app mode."""
     try:
         import webview
 
-        webview.create_window("Persona", url, width=1200, height=800, min_size=(800, 600))
-        webview.start()
-    except Exception:
-        webbrowser.open(url)
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            pass
+        _log_startup("launcher: starting pywebview")
+        webview.create_window("Persona", url, width=1280, height=860, min_size=(900, 600))
+        if sys.platform == "win32":
+            webview.start(gui="edgechromium")
+        else:
+            webview.start()
+        return
+    except Exception as exc:
+        _log_startup(f"launcher: pywebview failed: {exc}")
+
+    if _open_browser_app_mode(url):
+        _log_startup("launcher: opened Edge/Chrome app window")
+        _keepalive()
+        return
+
+    _log_startup("launcher: falling back to default browser")
+    webbrowser.open(url)
+    _keepalive()
+
+
+def _open_browser_app_mode(url: str) -> bool:
+    """Launch Chromium in --app mode (standalone window, no browser tabs)."""
+    if sys.platform != "win32":
+        return False
+
+    import subprocess
+
+    candidates = [
+        os.path.join(os.environ.get("PROGRAMFILES", ""), "Microsoft", "Edge", "Application", "msedge.exe"),
+        os.path.join(os.environ.get("PROGRAMFILES(X86)", ""), "Microsoft", "Edge", "Application", "msedge.exe"),
+        os.path.join(os.environ.get("PROGRAMFILES", ""), "Google", "Chrome", "Application", "chrome.exe"),
+        os.path.join(os.environ.get("PROGRAMFILES(X86)", ""), "Google", "Chrome", "Application", "chrome.exe"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "Application", "chrome.exe"),
+    ]
+    for path in candidates:
+        if path and os.path.isfile(path):
+            subprocess.Popen(
+                [path, f"--app={url}", "--new-window", "--disable-extensions"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                close_fds=True,
+            )
+            return True
+    return False
+
+
+def _keepalive() -> None:
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
 
 
 def _print_banner(url: str, provider: str) -> None:

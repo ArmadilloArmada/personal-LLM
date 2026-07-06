@@ -18,6 +18,31 @@ def ollama_available(settings: Settings) -> bool:
         return False
 
 
+def ollama_installed_models(settings: Settings) -> list[str]:
+    try:
+        r = httpx.get(f"{settings.ollama_base_url}/api/tags", timeout=2.0)
+        if r.status_code != 200:
+            return []
+        return [m.get("name", "") for m in r.json().get("models", []) if m.get("name")]
+    except Exception:
+        return []
+
+
+def ollama_model_installed(settings: Settings) -> bool:
+    """True when the configured Ollama model is actually pulled locally."""
+    target = settings.ollama_model.split(":")[0]
+    for name in ollama_installed_models(settings):
+        base = name.split(":")[0]
+        if base == target or name == settings.ollama_model:
+            return True
+    return False
+
+
+def ollama_ready(settings: Settings) -> bool:
+    """Ollama is running and the configured model is available for chat."""
+    return ollama_available(settings) and ollama_model_installed(settings)
+
+
 def resolve_provider_mode(settings: Settings) -> str:
     """Pick provider — frozen Windows builds default to demo for instant startup."""
     if getattr(sys, "frozen", False) and not os.environ.get("PERSONA_PROVIDER"):
@@ -29,10 +54,10 @@ def resolve_provider_mode(settings: Settings) -> str:
     if mode == "openai":
         return "openai" if settings.openai_api_key else "demo"
     if mode == "ollama":
-        if ollama_available(settings):
+        if ollama_ready(settings):
             return "ollama"
         return "openai" if settings.openai_api_key else "demo"
-    if ollama_available(settings):
+    if ollama_ready(settings):
         return "ollama"
     if settings.openai_api_key:
         return "openai"

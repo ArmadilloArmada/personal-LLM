@@ -92,7 +92,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if workspace_id:
             crew.switch_workspace(workspace_id)
 
-    app = FastAPI(title="Persona", description="AI agent workspace", version="0.7.0")
+    app = FastAPI(title="Persona", description="AI agent workspace", version="0.7.1")
 
     @app.get("/api/personas")
     def list_personas():
