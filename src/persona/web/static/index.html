@@ -25,6 +25,8 @@
         </div>
       </div>
       <div class="header-actions">
+        <select id="workspace-select" class="workspace-select" title="Team workspace"></select>
+        <button type="button" class="icon-btn" id="new-workspace-btn" title="New team workspace">🏢</button>
         <button type="button" class="icon-btn" id="voice-toggle" title="Toggle voice replies">🔊</button>
         <button type="button" class="icon-btn" id="add-persona-btn" title="Add custom persona">➕ Persona</button>
         <div class="mode-switch" role="tablist">
@@ -41,6 +43,15 @@
         <h2 class="panel-title">The Crew</h2>
         <p class="panel-hint" id="mode-hint">Pick a persona to chat one-on-one.</p>
         <div class="persona-grid" id="persona-grid"></div>
+        <section class="docs-panel" id="docs-panel">
+          <h3>📚 Company Docs</h3>
+          <p class="panel-hint">Upload policies, specs, or notes — personas can search them.</p>
+          <label class="upload-btn">
+            Upload doc
+            <input type="file" id="doc-upload" accept=".txt,.md,.markdown,.csv,.json,.yaml,.yml,.rst" hidden />
+          </label>
+          <ul id="doc-list"></ul>
+        </section>
         <section class="projects-panel" id="projects-panel" hidden>
           <h3>Active Projects</h3>
           <ul id="project-list"></ul>
@@ -57,7 +68,7 @@
           <div class="welcome-bubble">
             <h3>Welcome aboard! 👋</h3>
             <p>Meet your crew — or <strong>add your own</strong> company personas with the ➕ button.</p>
-            <p>🎤 Tap the mic to talk. Enable 🔊 for spoken replies. Responses stream in real time.</p>
+            <p>🏢 Switch workspaces for different teams. Upload company docs — personas search them automatically.</p>
           </div>
         </div>
 
@@ -90,6 +101,7 @@
       <label>Tagline <input name="tagline" placeholder="Numbers with personality." /></label>
       <label>Emoji <input name="emoji" value="🤖" maxlength="4" /></label>
       <label>Color <input name="color" type="color" value="#6366F1" /></label>
+      <label>Avatar image <input name="avatar" type="file" accept="image/*" /></label>
       <label>Instructions <textarea name="instructions" rows="3" placeholder="You are Ledger, our friendly finance expert..."></textarea></label>
       <div class="dialog-actions">
         <button type="button" id="cancel-persona">Cancel</button>

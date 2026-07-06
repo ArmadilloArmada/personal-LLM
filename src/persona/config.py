@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     max_tool_rounds: int = 15
     workspace: Path = Field(default_factory=lambda: Path.cwd())
+    active_workspace: str = "default"
     web_host: str = "127.0.0.1"
     web_port: int = 8765
 

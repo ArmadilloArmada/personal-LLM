@@ -659,7 +659,75 @@ body {
   gap: 0.35rem;
 }
 
-.persona-dialog {
+.workspace-select {
+  font-family: var(--font);
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  background: white;
+  max-width: 180px;
+}
+
+.docs-panel {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 2px dashed rgba(45, 27, 78, 0.1);
+}
+
+.docs-panel h3 {
+  font-size: 0.9rem;
+  margin-bottom: 0.35rem;
+}
+
+.upload-btn {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: #4f8cff;
+  color: white;
+  padding: 0.35rem 0.75rem;
+  border-radius: 10px;
+  border: 2px solid var(--ink);
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+}
+
+#doc-list {
+  list-style: none;
+  font-size: 0.75rem;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+#doc-list li {
+  padding: 0.3rem 0;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+#doc-list button {
+  font-size: 0.65rem;
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+}
+
+.persona-avatar img,
+.mini-avatar img,
+.stage-char img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 2px solid var(--ink);
+}
+
+.stage-char img { border-radius: 50%; }
   border: 3px solid var(--ink);
   border-radius: 20px;
   padding: 1.25rem;

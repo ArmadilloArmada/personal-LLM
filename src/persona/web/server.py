@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -15,6 +15,7 @@ from persona.config import Settings, get_settings
 from persona.crew import Crew
 from persona.personas import get_persona
 from persona.projects import BOARD_COLUMNS
+from persona.rag import DocumentStore
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -23,6 +24,7 @@ class ChatRequest(BaseModel):
     message: str
     persona_id: str = "byte"
     stream: bool = False
+    workspace_id: str | None = None
 
 
 class GroupChatRequest(BaseModel):
@@ -31,6 +33,7 @@ class GroupChatRequest(BaseModel):
     persona_ids: list[str] | None = None
     project_id: str | None = None
     stream: bool = False
+    workspace_id: str | None = None
 
 
 class CustomPersonaRequest(BaseModel):
@@ -44,9 +47,14 @@ class CustomPersonaRequest(BaseModel):
     shape: str = "hexagon"
     personality: str = ""
     specialties: list[str] = Field(default_factory=list)
-    tools: list[str] = Field(default_factory=lambda: ["remember", "forget"])
+    tools: list[str] = Field(default_factory=lambda: ["remember", "forget", "search_docs"])
     company: str = ""
     instructions: str = ""
+
+
+class WorkspaceCreateRequest(BaseModel):
+    name: str
+    company: str = ""
 
 
 class TaskMoveRequest(BaseModel):
@@ -68,7 +76,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     crew = Crew(settings)
 
-    app = FastAPI(title="Persona", description="Cartoon AI crew", version="0.3.0")
+    def _apply_workspace(workspace_id: str | None) -> None:
+        if workspace_id:
+            crew.switch_workspace(workspace_id)
+
+    app = FastAPI(title="Persona", description="Cartoon AI crew", version="0.4.0")
 
     @app.get("/api/personas")
     def list_personas():
@@ -83,10 +95,69 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def delete_persona(persona_id: str):
         if not crew.remove_custom_persona(persona_id):
             raise HTTPException(status_code=404, detail="Custom persona not found or is built-in")
+        crew.avatars.delete(persona_id)
         return {"deleted": persona_id}
+
+    @app.post("/api/personas/{persona_id}/avatar")
+    async def upload_avatar(persona_id: str, file: UploadFile = File(...)):
+        try:
+            get_persona(persona_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        data = await file.read()
+        try:
+            url = crew.save_avatar(persona_id, file.filename or "avatar.png", data)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"avatar_url": url}
+
+    @app.get("/api/avatars/{filename}")
+    def get_avatar(filename: str):
+        path = crew.avatars.dir / filename
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="Avatar not found")
+        return FileResponse(path)
+
+    @app.get("/api/workspaces")
+    def list_workspaces():
+        return {
+            "workspaces": crew.list_workspaces(),
+            "active": crew.workspace_manager.get_active_id(),
+        }
+
+    @app.post("/api/workspaces")
+    def create_workspace(req: WorkspaceCreateRequest):
+        return {"workspace": crew.create_workspace(req.name, req.company)}
+
+    @app.post("/api/workspaces/{workspace_id}/activate")
+    def activate_workspace(workspace_id: str):
+        try:
+            return {"workspace": crew.switch_workspace(workspace_id)}
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.get("/api/docs")
+    def list_docs():
+        return {"documents": crew.list_documents()}
+
+    @app.post("/api/docs")
+    async def upload_doc(file: UploadFile = File(...)):
+        suffix = Path(file.filename or "").suffix.lower()
+        if suffix not in DocumentStore.SUPPORTED_SUFFIXES:
+            raise HTTPException(status_code=400, detail=f"Unsupported file type: {suffix}")
+        content = (await file.read()).decode("utf-8", errors="replace")
+        doc = crew.ingest_document(file.filename or "document.txt", content)
+        return {"document": doc}
+
+    @app.delete("/api/docs/{doc_id}")
+    def delete_doc(doc_id: str):
+        if not crew.delete_document(doc_id):
+            raise HTTPException(status_code=404, detail="Document not found")
+        return {"deleted": doc_id}
 
     @app.get("/api/status")
     def status():
+        ws = crew.team_workspace
         return {
             "provider": settings.provider,
             "model": settings.openai_model
@@ -94,10 +165,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             else settings.ollama_model,
             "workspace": str(settings.workspace),
             "board_columns": BOARD_COLUMNS,
+            "team_workspace": ws.to_dict() if ws else None,
+            "document_count": len(crew.list_documents()),
         }
 
     @app.post("/api/chat")
     def chat(req: ChatRequest):
+        _apply_workspace(req.workspace_id)
         try:
             get_persona(req.persona_id)
         except KeyError as exc:
@@ -119,6 +193,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/api/group")
     def group_chat(req: GroupChatRequest):
+        _apply_workspace(req.workspace_id)
         if not req.message.strip():
             raise HTTPException(status_code=400, detail="Message cannot be empty")
 

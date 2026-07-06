@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import httpx
 
 from persona.memory import MemoryStore
+from persona.rag import DocumentStore
 
 
 class Tool(ABC):
@@ -337,13 +338,57 @@ class ForgetTool(Tool):
         return self.memory.remove(kwargs["key"])
 
 
-def build_tools(workspace: Path, memory: MemoryStore) -> list[Tool]:
+class SearchDocsTool(Tool):
+    name = "search_docs"
+    description = "Search ingested company documents in the team workspace knowledge base."
+
+    def __init__(self, doc_store: DocumentStore | None):
+        self.doc_store = doc_store
+
+    def schema(self) -> dict[str, Any]:
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "What to search for in company docs",
+                        },
+                    },
+                    "required": ["query"],
+                },
+            },
+        }
+
+    def run(self, **kwargs: Any) -> str:
+        if not self.doc_store:
+            return "Error: no document knowledge base configured for this workspace."
+        query = kwargs.get("query", "")
+        hits = self.doc_store.search(query, top_k=5)
+        if not hits:
+            return "No matching documents found."
+        lines = []
+        for hit in hits:
+            lines.append(f"[{hit['filename']}] (score {hit['score']})\n{hit['snippet']}")
+        return "\n\n---\n\n".join(lines)
+
+
+def build_tools(
+    workspace: Path,
+    memory: MemoryStore,
+    doc_store: DocumentStore | None = None,
+) -> list[Tool]:
     return [
         ReadFileTool(workspace),
         WriteFileTool(workspace),
         ListDirectoryTool(workspace),
         RunShellTool(workspace),
         WebFetchTool(),
+        SearchDocsTool(doc_store),
         RememberTool(memory),
         ForgetTool(memory),
     ]

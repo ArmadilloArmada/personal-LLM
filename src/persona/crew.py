@@ -10,11 +10,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from persona.agent import Agent
+from persona.agent import Agent, build_agent_context
+from persona.avatars import AvatarStore
 from persona.config import Settings
 from persona.custom import reload_persona_registry
 from persona.llm import get_provider
 from persona.models import Message
+from persona.rag import DocumentStore
 from persona.personas import (
     CAPTAIN,
     PERSONAS,
@@ -23,6 +25,7 @@ from persona.personas import (
     route_personas,
 )
 from persona.projects import BOARD_COLUMNS, board_view, extract_tasks_from_plan, move_task, new_task
+from persona.workspace import TeamWorkspace, WorkspaceManager
 
 
 @dataclass
@@ -59,6 +62,7 @@ class ProjectState:
     updated_at: str
     history: list[dict] = field(default_factory=list)
     tasks: list[dict] = field(default_factory=list)
+    workspace_id: str = "default"
 
     def to_dict(self) -> dict:
         return {
@@ -70,6 +74,7 @@ class ProjectState:
             "updated_at": self.updated_at,
             "history": self.history,
             "tasks": self.tasks,
+            "workspace_id": self.workspace_id,
             "board": board_view(self.tasks),
         }
 
@@ -79,10 +84,24 @@ class Crew:
         self.settings = settings
         reload_persona_registry(settings)
         self.provider = get_provider(settings)
+        self.workspace_manager = WorkspaceManager(settings.data_dir)
+        self.avatars = AvatarStore(settings.data_dir)
+        self.team_workspace, self.doc_store = build_agent_context(settings)
+
+    def _make_agent(self, persona) -> Agent:
+        return Agent(
+            self.settings,
+            persona=persona,
+            team_workspace=self.team_workspace,
+            doc_store=self.doc_store,
+        )
+
+    def refresh_context(self) -> None:
+        self.team_workspace, self.doc_store = build_agent_context(self.settings)
 
     def solo(self, persona_id: str, message: str) -> CrewResult:
         persona = get_persona(persona_id)
-        agent = Agent(self.settings, persona=persona)
+        agent = self._make_agent(persona)
         reply = agent.chat(message)
         return CrewResult(
             mode="solo",
@@ -91,7 +110,7 @@ class Crew:
 
     def iter_solo(self, persona_id: str, message: str) -> Iterator[dict[str, Any]]:
         persona = get_persona(persona_id)
-        agent = Agent(self.settings, persona=persona)
+        agent = self._make_agent(persona)
         yield {"type": "persona_start", "persona_id": persona.id, "phase": "response"}
         for event in agent.iter_chat(message):
             yield event
@@ -124,7 +143,7 @@ class Crew:
                 f"Respond in character as {persona.name}."
             )
             if persona.tools:
-                agent = Agent(self.settings, persona=persona)
+                agent = self._make_agent(persona)
                 for event in agent.iter_chat(prompt):
                     yield event
             else:
@@ -149,7 +168,7 @@ class Crew:
             "Create a concise project plan with 2-4 tasks. "
             "For each task, name which crew member should own it and what they should deliver."
         )
-        captain_agent = Agent(self.settings, persona=CAPTAIN)
+        captain_agent = self._make_agent(CAPTAIN)
         plan = captain_agent.chat(plan_prompt)
         results.append(CrewMessage(persona_id="captain", content=plan, phase="plan"))
 
@@ -212,7 +231,7 @@ class Crew:
     def _persona_reply(self, persona_id: str, prompt: str) -> str:
         persona = get_persona(persona_id)
         if persona.tools:
-            return Agent(self.settings, persona=persona).chat(prompt)
+            return self._make_agent(persona).chat(prompt)
         response = self.provider.chat(
             [
                 Message(role="system", content=persona.system_prompt),
@@ -241,6 +260,8 @@ class Crew:
                 data = json.loads(path.read_text(encoding="utf-8"))
                 if "tasks" not in data:
                     data["tasks"] = []
+                if "workspace_id" not in data:
+                    data["workspace_id"] = "default"
                 return ProjectState(**data)
 
         now = datetime.now(timezone.utc).isoformat()
@@ -252,6 +273,7 @@ class Crew:
             status="new",
             created_at=now,
             updated_at=now,
+            workspace_id=self.workspace_manager.get_active_id(),
         )
 
     def _save_project(self, project: ProjectState) -> None:
@@ -291,10 +313,13 @@ class Crew:
         return project.to_dict()
 
     def list_projects(self) -> list[dict]:
+        active = self.workspace_manager.get_active_id()
         projects = []
         for path in sorted(self.settings.projects_dir.glob("*.json"), reverse=True):
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
+                if data.get("workspace_id", "default") != active:
+                    continue
                 data["board"] = board_view(data.get("tasks", []))
                 projects.append(data)
             except Exception:
@@ -302,7 +327,40 @@ class Crew:
         return projects
 
     def persona_catalog(self) -> list[dict]:
-        return [persona_to_dict(p) for p in PERSONAS.values()]
+        return [persona_to_dict(p, self.avatars) for p in PERSONAS.values()]
+
+    def list_workspaces(self) -> list[dict]:
+        active = self.workspace_manager.get_active_id()
+        return [
+            {**ws.to_dict(), "active": ws.id == active}
+            for ws in self.workspace_manager.list_all()
+        ]
+
+    def create_workspace(self, name: str, company: str = "") -> dict:
+        ws = self.workspace_manager.create(name, company)
+        return ws.to_dict()
+
+    def switch_workspace(self, workspace_id: str) -> dict:
+        ws = self.workspace_manager.set_active(workspace_id)
+        self.refresh_context()
+        return ws.to_dict()
+
+    def get_doc_store(self) -> DocumentStore:
+        ws_id = self.workspace_manager.get_active_id()
+        return DocumentStore(self.workspace_manager.workspace_dir(ws_id))
+
+    def ingest_document(self, filename: str, content: str) -> dict:
+        return self.get_doc_store().ingest(filename, content)
+
+    def list_documents(self) -> list[dict]:
+        return self.get_doc_store().list_documents()
+
+    def delete_document(self, doc_id: str) -> bool:
+        return self.get_doc_store().delete(doc_id)
+
+    def save_avatar(self, persona_id: str, filename: str, data: bytes) -> str:
+        path = self.avatars.save(persona_id, filename, data)
+        return f"/api/avatars/{persona_id}{path.suffix}"
 
     def add_custom_persona(self, data: dict) -> dict:
         from persona.custom import persona_from_dict, save_custom_persona
@@ -310,7 +368,7 @@ class Crew:
         persona = persona_from_dict(data)
         save_custom_persona(persona, self.settings.custom_personas_dir)
         reload_persona_registry(self.settings)
-        return persona_to_dict(persona)
+        return persona_to_dict(persona, self.avatars)
 
     def remove_custom_persona(self, persona_id: str) -> bool:
         from persona.custom import BUILTIN_IDS, delete_custom_persona

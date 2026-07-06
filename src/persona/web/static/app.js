@@ -1,4 +1,4 @@
-/** Persona v0.3 — streaming, voice, board, custom personas */
+/** Persona v0.4 — teams, RAG docs, custom avatars */
 
 const state = {
   mode: "solo",
@@ -6,6 +6,7 @@ const state = {
   selectedId: "byte",
   activeIds: [],
   projectId: null,
+  workspaceId: "default",
   loading: false,
   voiceEnabled: false,
   listening: false,
@@ -40,6 +41,16 @@ const kanban = $("#kanban");
 const boardSelect = $("#board-project-select");
 const personaDialog = $("#persona-dialog");
 const personaForm = $("#persona-form");
+const workspaceSelect = $("#workspace-select");
+const docUpload = $("#doc-upload");
+const docList = $("#doc-list");
+
+function avatarHtml(persona, size = 52) {
+  if (persona?.avatar_url) {
+    return `<img src="${persona.avatar_url}?t=${Date.now()}" width="${size}" height="${size}" alt="${persona.name}" />`;
+  }
+  return svgAvatar(persona, size);
+}
 
 // --- Cartoon SVG avatars ---
 
@@ -118,7 +129,7 @@ function renderPersonaGrid() {
     if (state.mode !== "solo" && state.mode !== "board" && state.activeIds.includes(p.id)) btn.classList.add("in-group");
     const badge = p.is_custom ? `<span class="custom-badge">${p.company || "custom"}</span>` : "";
     btn.innerHTML = `
-      <div class="persona-avatar">${svgAvatar(p)}</div>
+      <div class="persona-avatar">${avatarHtml(p)}</div>
       <div class="persona-info">
         <h3>${p.emoji} ${p.name}${badge}</h3>
         <p>${p.role} — ${p.tagline}</p>
@@ -146,7 +157,7 @@ function renderStage() {
     const div = document.createElement("div");
     div.className = "stage-char";
     div.dataset.id = id;
-    div.innerHTML = `${svgAvatar(p, 64)}<span class="char-name">${p.name}</span>`;
+    div.innerHTML = `${avatarHtml(p, 64)}<span class="char-name">${p.name}</span>`;
     stageChars.appendChild(div);
   });
 }
@@ -169,7 +180,7 @@ function addMessage({ role, personaId, content, phase, streaming = false }) {
     const p = personaById(personaId);
     const phaseLabel = phase && phase !== "response" ? `<span class="phase-tag">${phase}</span>` : "";
     div.innerHTML = `
-      <div class="mini-avatar">${p ? svgAvatar(p, 36) : ""}</div>
+      <div class="mini-avatar">${p ? avatarHtml(p, 36) : ""}</div>
       <div>
         <div class="meta" style="--persona-color:${p?.color || "#666"}">${p?.emoji || ""} ${p?.name || "Crew"}${phaseLabel}</div>
         <div class="bubble${streaming ? " streaming" : ""}" style="--persona-color:${p?.color || "#666"}">${escapeHtml(content)}</div>
@@ -189,7 +200,7 @@ function startStreamBubble(personaId, phase) {
   const p = personaById(personaId);
   const phaseLabel = phase && phase !== "response" ? `<span class="phase-tag">${phase}</span>` : "";
   div.innerHTML = `
-    <div class="mini-avatar">${p ? svgAvatar(p, 36) : ""}</div>
+    <div class="mini-avatar">${p ? avatarHtml(p, 36) : ""}</div>
     <div>
       <div class="meta" style="--persona-color:${p?.color || "#666"}">${p?.emoji || ""} ${p?.name || "Crew"}${phaseLabel}</div>
       <div class="bubble streaming" style="--persona-color:${p?.color || "#666"}"></div>
@@ -295,7 +306,7 @@ async function consumeSSE(url, body) {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...body, stream: true }),
+    body: JSON.stringify({ ...body, stream: true, workspace_id: state.workspaceId }),
   });
   if (!res.ok) throw new Error(await res.text());
 
@@ -503,18 +514,94 @@ $("#cancel-persona").addEventListener("click", () => personaDialog.close());
 personaForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(personaForm);
+  const avatarFile = fd.get("avatar");
+  fd.delete("avatar");
   const payload = Object.fromEntries(fd.entries());
   payload.specialties = [payload.role.toLowerCase()];
+  payload.tools = ["remember", "forget", "search_docs"];
   const res = await fetch("/api/personas", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (res.ok) {
+    const data = await res.json();
+    const personaId = data.persona?.id;
+    if (avatarFile && avatarFile.size > 0 && personaId) {
+      const form = new FormData();
+      form.append("file", avatarFile);
+      await fetch(`/api/personas/${personaId}/avatar`, { method: "POST", body: form });
+    }
     personaDialog.close();
     personaForm.reset();
     await loadPersonas();
   }
+});
+
+// --- Team workspaces ---
+
+async function loadWorkspaces() {
+  const res = await fetch("/api/workspaces");
+  const data = await res.json();
+  state.workspaceId = data.active || "default";
+  workspaceSelect.innerHTML = "";
+  (data.workspaces || []).forEach((ws) => {
+    const opt = document.createElement("option");
+    opt.value = ws.id;
+    opt.textContent = ws.company ? `${ws.name} (${ws.company})` : ws.name;
+    if (ws.id === state.workspaceId) opt.selected = true;
+    workspaceSelect.appendChild(opt);
+  });
+}
+
+workspaceSelect?.addEventListener("change", async () => {
+  state.workspaceId = workspaceSelect.value;
+  await fetch(`/api/workspaces/${state.workspaceId}/activate`, { method: "POST" });
+  await loadDocs();
+  await loadProjects();
+  if (state.mode === "board") loadBoard();
+});
+
+$("#new-workspace-btn")?.addEventListener("click", async () => {
+  const name = prompt("Team workspace name:");
+  if (!name) return;
+  const company = prompt("Company name (optional):") || "";
+  await fetch("/api/workspaces", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, company }),
+  });
+  await loadWorkspaces();
+});
+
+// --- Company docs (RAG) ---
+
+async function loadDocs() {
+  const res = await fetch("/api/docs");
+  const data = await res.json();
+  docList.innerHTML = "";
+  (data.documents || []).forEach((doc) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span>${doc.filename} (${doc.chunks} chunks)</span>`;
+    const btn = document.createElement("button");
+    btn.textContent = "✕";
+    btn.addEventListener("click", async () => {
+      await fetch(`/api/docs/${doc.id}`, { method: "DELETE" });
+      loadDocs();
+    });
+    li.appendChild(btn);
+    docList.appendChild(li);
+  });
+}
+
+docUpload?.addEventListener("change", async () => {
+  const file = docUpload.files?.[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append("file", file);
+  await fetch("/api/docs", { method: "POST", body: form });
+  docUpload.value = "";
+  loadDocs();
 });
 
 // --- Events ---
@@ -539,5 +626,8 @@ input.addEventListener("keydown", (e) => {
 });
 
 setupVoiceInput();
-loadPersonas();
-loadProjects();
+loadWorkspaces().then(() => {
+  loadPersonas();
+  loadProjects();
+  loadDocs();
+});

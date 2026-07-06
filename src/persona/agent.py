@@ -13,7 +13,9 @@ from persona.llm import get_provider
 from persona.memory import MemoryStore
 from persona.models import Message
 from persona.personas import DEFAULT_PERSONA, Persona, get_persona
+from persona.rag import DocumentStore
 from persona.tools import Tool, build_tools, run_tool, tool_schemas
+from persona.workspace import TeamWorkspace, WorkspaceManager
 
 
 class Agent:
@@ -21,14 +23,18 @@ class Agent:
         self,
         settings: Settings,
         persona: Persona | None = None,
+        team_workspace: TeamWorkspace | None = None,
+        doc_store: DocumentStore | None = None,
         on_tool_call: Callable[[str, dict], None] | None = None,
         on_tool_result: Callable[[str, str], None] | None = None,
     ):
         self.settings = settings
         self.persona = persona or DEFAULT_PERSONA
+        self.team_workspace = team_workspace
+        self.doc_store = doc_store
         self.workspace = settings.workspace.resolve()
         self.memory = MemoryStore(settings.memory_file)
-        all_tools = build_tools(self.workspace, self.memory)
+        all_tools = build_tools(self.workspace, self.memory, doc_store)
         allowed = set(self.persona.tools)
         self.tools: list[Tool] = [t for t in all_tools if t.name in allowed]
         self.provider = get_provider(settings)
@@ -42,7 +48,17 @@ class Agent:
         content = self.persona.system_prompt
         if memory_context:
             content += f"\n\n{memory_context}"
-        content += f"\n\nWorkspace: {self.workspace}"
+        if self.team_workspace:
+            content += (
+                f"\n\nTeam workspace: {self.team_workspace.name}"
+                f"{f' ({self.team_workspace.company})' if self.team_workspace.company else ''}"
+                f"\nMembers: {', '.join(self.team_workspace.members)}"
+            )
+        if self.doc_store and self.doc_store.list_documents():
+            docs = ", ".join(d["filename"] for d in self.doc_store.list_documents()[:8])
+            content += f"\n\nCompany knowledge base includes: {docs}"
+            content += "\nUse search_docs to find relevant policy, product, or company information."
+        content += f"\n\nFilesystem workspace: {self.workspace}"
         content += f"\nCurrent time (UTC): {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}"
         self.messages = [Message(role="system", content=content)]
 
@@ -98,6 +114,14 @@ class Agent:
 
     def iter_chat(self, user_input: str) -> Iterator[dict[str, Any]]:
         self.messages.append(Message(role="user", content=user_input))
+
+        if self.doc_store:
+            doc_context = self.doc_store.context_block(user_input)
+            if doc_context:
+                self.messages.append(
+                    Message(role="system", content=doc_context)
+                )
+
         schemas = tool_schemas(self.tools) if self.tools else None
 
         for _ in range(self.settings.max_tool_rounds):
@@ -139,3 +163,11 @@ class Agent:
 def _chunk_text(text: str, size: int = 24) -> Iterator[str]:
     for i in range(0, len(text), size):
         yield text[i : i + size]
+
+
+def build_agent_context(settings: Settings) -> tuple[TeamWorkspace | None, DocumentStore | None]:
+    manager = WorkspaceManager(settings.data_dir)
+    ws_id = manager.get_active_id()
+    team_ws = manager.get(ws_id)
+    doc_store = DocumentStore(manager.workspace_dir(ws_id))
+    return team_ws, doc_store

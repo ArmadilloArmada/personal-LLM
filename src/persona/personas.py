@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from persona.avatars import AvatarStore
+
 
 @dataclass(frozen=True)
 class Persona:
@@ -52,7 +54,7 @@ BYTE = _register(
         shape="square",
         personality="Geeky, precise, loves clean code and terminal puns.",
         specialties=["coding", "debugging", "refactoring", "devops", "apis", "git"],
-        tools=["read_file", "write_file", "list_directory", "run_shell", "remember", "forget"],
+        tools=["read_file", "write_file", "list_directory", "run_shell", "search_docs", "remember", "forget"],
         system_prompt=f"""You are Byte, the Programmer persona on the Persona crew.
 You're a cartoon coding wizard with oversized glasses and a hoodie full of stickers.
 You speak like a friendly senior dev — clear, practical, occasionally nerdy.
@@ -101,7 +103,7 @@ NOVA = _register(
         shape="star",
         personality="Curious, analytical, cites sources, loves rabbit holes.",
         specialties=["research", "analysis", "summaries", "comparison", "fact-check"],
-        tools=["read_file", "list_directory", "web_fetch", "remember", "forget"],
+        tools=["read_file", "list_directory", "web_fetch", "search_docs", "remember", "forget"],
         system_prompt=f"""You are Nova, the Researcher persona on the Persona crew.
 You're a cartoon star-gazer with a magnifying glass and a notebook of discoveries.
 You hunt for facts, compare options, and summarize with structure.
@@ -149,7 +151,7 @@ CAPTAIN = _register(
         shape="shield",
         personality="Calm, organized, delegates well, sees the big picture.",
         specialties=["planning", "delegation", "projects", "priorities", "coordination"],
-        tools=["read_file", "list_directory", "remember", "forget"],
+        tools=["read_file", "list_directory", "remember", "forget", "search_docs"],
         system_prompt=f"""You are Captain, the Project Lead persona on the Persona crew.
 You're a cartoon captain with a compass badge and a clipboard full of missions.
 You break work into steps, assign the right crew member, and keep projects moving.
@@ -178,8 +180,8 @@ def list_personas() -> list[Persona]:
     return list(PERSONAS.values())
 
 
-def persona_to_dict(p: Persona) -> dict:
-    return {
+def persona_to_dict(p: Persona, avatar_store: AvatarStore | None = None) -> dict:
+    data = {
         "id": p.id,
         "name": p.name,
         "role": p.role,
@@ -193,7 +195,11 @@ def persona_to_dict(p: Persona) -> dict:
         "tools": p.tools,
         "is_custom": p.is_custom,
         "company": p.company,
+        "avatar_url": None,
     }
+    if avatar_store:
+        data["avatar_url"] = avatar_store.url_for(p.id)
+    return data
 
 
 def route_personas(message: str) -> list[str]:

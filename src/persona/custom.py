@@ -20,6 +20,7 @@ VALID_TOOLS = {
     "web_fetch",
     "remember",
     "forget",
+    "search_docs",
 }
 BUILTIN_IDS = frozenset({"byte", "sunny", "nova", "sketch", "captain"})
 
