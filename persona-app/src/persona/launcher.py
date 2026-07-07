@@ -58,7 +58,8 @@ def find_free_port(preferred: int = 8765) -> int:
 
 
 def wait_for_server(host: str, port: int, timeout: float = 45.0) -> bool:
-    url = f"http://{host}:{port}/api/status"
+    # Use /api/health — /api/status probes Ollama and can exceed client timeouts.
+    url = f"http://{host}:{port}/api/health"
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -104,13 +105,17 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
     if getattr(sys, "frozen", False):
         os.chdir(Path(sys.executable).parent)
 
-    try:
-        from persona.big_brain.process import ensure_brain_server
+    def _start_brain() -> None:
+        try:
+            from persona.big_brain.process import ensure_brain_server
 
-        _log_startup("launcher: starting Big Brain API")
-        ensure_brain_server()
-    except Exception as exc:
-        _log_startup(f"launcher: Big Brain start skipped: {exc}")
+            _log_startup("launcher: starting Big Brain API")
+            ensure_brain_server()
+            _log_startup("launcher: Big Brain ready")
+        except Exception as exc:
+            _log_startup(f"launcher: Big Brain start skipped: {exc}")
+
+    threading.Thread(target=_start_brain, daemon=True).start()
 
     settings = get_settings()
     host = "127.0.0.1"
@@ -130,12 +135,17 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
         server.start()
         _log_startup("launcher: waiting for server (window mode)")
         if not wait_for_server(host, port):
+            health_url = f"http://{host}:{port}/api/health"
             message = (
                 "Persona could not start its local server.\n\n"
                 "Check %USERPROFILE%\\.persona\\error.log and startup.log"
             )
             _log_startup("launcher: server did not respond in time")
-            _log_error(RuntimeError(f"Server did not respond on {host}:{port}"))
+            _persona_log_dir().joinpath("error.log").write_text(
+                f"Server did not respond within 45s at {health_url}\n"
+                "If /api/health works in a browser but the app still fails, check startup.log.",
+                encoding="utf-8",
+            )
             if getattr(sys, "frozen", False):
                 if not os.environ.get("PERSONA_NO_MSGBOX"):
                     _show_windows_error(message)

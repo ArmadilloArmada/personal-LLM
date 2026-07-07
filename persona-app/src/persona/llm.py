@@ -214,7 +214,7 @@ def get_provider(settings: Settings) -> LLMProvider:
 def provider_status(settings: Settings) -> dict:
     mode = resolve_provider_mode(settings)
     ollama_up = ollama_available(settings)
-    model_ready = ollama_model_installed(settings)
+    model_ready = ollama_model_installed(settings) if ollama_up else False
     return {
         "active": mode,
         "ollama_available": ollama_up,
