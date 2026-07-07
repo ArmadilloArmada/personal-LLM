@@ -92,7 +92,7 @@ rl.on('line', (line) => {
       id,
       result: {
         protocolVersion: '2024-11-05',
-        serverInfo: { name: 'big-brain', version: '1.0.1' },
+        serverInfo: { name: 'big-brain', version: '1.0.2' },
         capabilities: { tools: {} },
       },
     });

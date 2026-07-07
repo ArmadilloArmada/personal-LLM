@@ -66,7 +66,7 @@ export default function GraphPage({ embedded = false }: { embedded?: boolean }) 
   };
 
   return (
-    <div className={`graph-container${embedded ? ' embedded' : ''}`} ref={containerRef}>
+    <div className={`graph-container${embedded ? " embedded" : ""}`}>
       <div className="graph-toolbar">
         <button type="button" onClick={loadGraph}>
           Refresh
@@ -74,7 +74,7 @@ export default function GraphPage({ embedded = false }: { embedded?: boolean }) 
         <select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}>
           {KINDS.map((k) => (
             <option key={k} value={k}>
-              {k === 'all' ? 'All types' : k}
+              {k === "all" ? "All types" : k}
             </option>
           ))}
         </select>
@@ -86,24 +86,26 @@ export default function GraphPage({ embedded = false }: { embedded?: boolean }) 
           />
           Orphans only
         </label>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          {filtered ? `${filtered.nodes.length} notes · ${filtered.links.length} links` : 'Loading...'}
+        <span className="graph-stats">
+          {filtered ? `${filtered.nodes.length} notes · ${filtered.links.length} links` : "Loading..."}
         </span>
       </div>
-      {filtered && filtered.nodes.length > 0 ? (
-        <ForceGraph2D
-          width={dimensions.width}
-          height={dimensions.height}
-          graphData={filtered}
-          nodeLabel={(n) => (n as { title?: string }).title ?? (n as { id: string }).id}
-          nodeColor={(n) => GRAPH_COLORS[(n as { kind?: string }).kind ?? 'note'] ?? GRAPH_COLORS.note}
-          linkColor={() => '#45475a'}
-          backgroundColor="#11111b"
-          onNodeClick={(node) => handleNodeClick(node as { id?: string })}
-        />
-      ) : (
-        <p className="empty-state">No notes to display in graph</p>
-      )}
+      <div className="graph-canvas" ref={containerRef}>
+        {filtered && filtered.nodes.length > 0 ? (
+          <ForceGraph2D
+            width={dimensions.width}
+            height={dimensions.height}
+            graphData={filtered}
+            nodeLabel={(n) => (n as { title?: string }).title ?? (n as { id: string }).id}
+            nodeColor={(n) => GRAPH_COLORS[(n as { kind?: string }).kind ?? "note"] ?? GRAPH_COLORS.note}
+            linkColor={() => "#45475a"}
+            backgroundColor="#11111b"
+            onNodeClick={(node) => handleNodeClick(node as { id?: string })}
+          />
+        ) : (
+          <p className="empty-state">No notes to display in graph</p>
+        )}
+      </div>
     </div>
   );
 }

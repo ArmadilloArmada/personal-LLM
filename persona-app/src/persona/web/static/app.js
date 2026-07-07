@@ -324,6 +324,8 @@ async function checkBrainErrors() {
 function setView(view) {
   state.view = view;
   const isBrain = view === "brain";
+  const mainEl = document.querySelector(".main");
+  mainEl?.classList.toggle("brain-view", isBrain);
   brainPanel.hidden = !isBrain;
   chatPanel.hidden = isBrain || state.mode === "board";
   boardPanel.hidden = isBrain || state.mode !== "board";
