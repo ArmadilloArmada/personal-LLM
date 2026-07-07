@@ -1,26 +1,30 @@
 # Download Persona + Big Brain (Windows)
 
-## Latest release
+## Latest release (recommended)
 
-**https://github.com/ArmadilloArmada/CursorProjects/releases/latest/download/Persona-Windows-portable.zip**
+**Installer:** https://github.com/ArmadilloArmada/CursorProjects/releases/latest/download/Persona-Setup.exe
+
+**Portable zip:** https://github.com/ArmadilloArmada/CursorProjects/releases/latest/download/Persona-Windows-portable.zip
 
 Release page: https://github.com/ArmadilloArmada/CursorProjects/releases/latest
 
 ## Quick start
 
-1. Download and unzip **Persona-Windows-portable.zip**
-2. Double-click **Persona.exe**
-3. Click **Chat** or **Big Brain** in the header
+1. Download **Persona-Setup.exe** (or the portable zip for advanced users)
+2. Run the installer — or unzip the portable folder and run **Persona.exe**
+3. Persona opens in an app window; use the system tray icon to quit
+4. Click **Chat** or **Big Brain** in the header
 
 ## Requirements
 
 - Windows 10 or 11 (64-bit)
-- No Python or Node install required (bundled in the portable zip)
+- Microsoft Edge or Google Chrome (for the app window)
+- No Python or Node install required (bundled)
 - Optional: [Ollama](https://ollama.com) for local LLMs
 
 ## Troubleshooting
 
-See [windows/README.txt](windows/README.txt) in the zip, or logs in `%USERPROFILE%\.persona\`.
+See [windows/README.txt](windows/README.txt) in the install folder, or logs in `%USERPROFILE%\.persona\`.
 
 ## Developers
 

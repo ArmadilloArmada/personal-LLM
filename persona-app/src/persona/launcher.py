@@ -13,7 +13,10 @@ from pathlib import Path
 
 import httpx
 
+from persona.browser import open_persona_ui
 from persona.config import Settings, get_settings
+from persona.dialogs import show_browser_missing, show_startup_failure
+from persona.instance import handle_secondary_launch, try_acquire_primary_instance, write_instance
 from persona.providers import resolve_provider_mode
 
 
@@ -36,17 +39,6 @@ def _log_error(exc: BaseException) -> None:
     path.write_text(traceback.format_exc(), encoding="utf-8")
 
 
-def _show_windows_error(message: str) -> None:
-    if sys.platform != "win32":
-        return
-    try:
-        import ctypes
-
-        ctypes.windll.user32.MessageBoxW(0, message, "Persona", 0x10)
-    except Exception:
-        pass
-
-
 def find_free_port(preferred: int = 8765) -> int:
     for port in range(preferred, preferred + 50):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -61,7 +53,6 @@ def find_free_port(preferred: int = 8765) -> int:
 
 
 def wait_for_server(host: str, port: int, timeout: float = 45.0) -> bool:
-    # Use /api/health — /api/status probes Ollama and can exceed client timeouts.
     url = f"http://{host}:{port}/api/health"
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -102,23 +93,28 @@ def _run_uvicorn(host: str, port: int) -> None:
         raise
 
 
+def _shutdown() -> None:
+    try:
+        from persona.big_brain.process import stop_brain_server
+
+        stop_brain_server()
+    except Exception:
+        pass
+
+
 def run_standalone(*, window: bool = False, port: int | None = None) -> None:
     """Launch Persona — opens browser after the local server is ready."""
     _log_startup("launcher: begin")
     if getattr(sys, "frozen", False):
         os.chdir(Path(sys.executable).parent)
 
-    def _start_brain() -> None:
-        try:
-            from persona.big_brain.process import ensure_brain_server
-
-            _log_startup("launcher: starting Big Brain API")
-            ensure_brain_server()
-            _log_startup("launcher: Big Brain ready")
-        except Exception as exc:
-            _log_startup(f"launcher: Big Brain start skipped: {exc}")
-
-    threading.Thread(target=_start_brain, daemon=True).start()
+    if window and getattr(sys, "frozen", False):
+        if not try_acquire_primary_instance():
+            _log_startup("launcher: another instance detected")
+            if handle_secondary_launch():
+                _log_startup("launcher: focused existing instance")
+                return
+            _log_startup("launcher: stale instance lock, continuing startup")
 
     settings = get_settings()
     host = "127.0.0.1"
@@ -139,10 +135,6 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
         _log_startup("launcher: waiting for server (window mode)")
         if not wait_for_server(host, port):
             health_url = f"http://{host}:{port}/api/health"
-            message = (
-                "Persona could not start its local server.\n\n"
-                "Check %USERPROFILE%\\.persona\\error.log and startup.log"
-            )
             _log_startup("launcher: server did not respond in time")
             _persona_log_dir().joinpath("error.log").write_text(
                 f"Server did not respond within 45s at {health_url}\n"
@@ -150,11 +142,11 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
                 encoding="utf-8",
             )
             if getattr(sys, "frozen", False):
-                if not os.environ.get("PERSONA_NO_MSGBOX"):
-                    _show_windows_error(message)
+                show_startup_failure(health_url)
                 sys.exit(1)
             print("Persona failed to start.", file=sys.stderr)
             sys.exit(1)
+        write_instance(url, port)
         _log_startup("launcher: opening app window")
         _open_window(url)
         return
@@ -170,25 +162,20 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
     try:
         _run_uvicorn(host, port)
     finally:
-        try:
-            from persona.big_brain.process import stop_brain_server
-
-            stop_brain_server()
-        except Exception:
-            pass
+        _shutdown()
 
 
 def _open_window(url: str) -> None:
     """Open Persona in a native window — pywebview in dev, Edge app mode in frozen builds."""
     if getattr(sys, "frozen", False):
         _log_startup("launcher: frozen build — using Edge/Chrome app window")
-        if _open_browser_app_mode(url):
+        if open_persona_ui(url):
             _log_startup("launcher: opened Edge/Chrome app window")
-            _keepalive()
+            _run_tray_loop(url)
             return
-        _log_startup("launcher: browser app mode failed, falling back to default browser")
-        webbrowser.open(url)
-        _keepalive()
+        _log_startup("launcher: browser app mode failed")
+        show_browser_missing(url)
+        _run_tray_loop(url)
         return
 
     try:
@@ -204,55 +191,20 @@ def _open_window(url: str) -> None:
     except Exception as exc:
         _log_startup(f"launcher: pywebview failed: {exc}")
 
-    if _open_browser_app_mode(url):
+    if open_persona_ui(url):
         _log_startup("launcher: opened Edge/Chrome app window")
-        _keepalive()
+        _run_tray_loop(url)
         return
 
     _log_startup("launcher: falling back to default browser")
     webbrowser.open(url)
-    _keepalive()
+    _run_tray_loop(url)
 
 
-def _open_browser_app_mode(url: str) -> bool:
-    """Launch Chromium in --app mode (standalone window, no browser tabs)."""
-    if sys.platform != "win32":
-        return False
+def _run_tray_loop(url: str) -> None:
+    from persona.tray import run_tray
 
-    import subprocess
-
-    candidates = [
-        os.path.join(os.environ.get("PROGRAMFILES", ""), "Microsoft", "Edge", "Application", "msedge.exe"),
-        os.path.join(os.environ.get("PROGRAMFILES(X86)", ""), "Microsoft", "Edge", "Application", "msedge.exe"),
-        os.path.join(os.environ.get("PROGRAMFILES", ""), "Google", "Chrome", "Application", "chrome.exe"),
-        os.path.join(os.environ.get("PROGRAMFILES(X86)", ""), "Google", "Chrome", "Application", "chrome.exe"),
-        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "Application", "chrome.exe"),
-    ]
-    for path in candidates:
-        if path and os.path.isfile(path):
-            subprocess.Popen(
-                [path, f"--app={url}", "--new-window", "--disable-extensions"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                close_fds=True,
-            )
-            return True
-    return False
-
-
-def _keepalive() -> None:
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        try:
-            from persona.big_brain.process import stop_brain_server
-
-            stop_brain_server()
-        except Exception:
-            pass
+    run_tray(url, on_quit=_shutdown)
 
 
 def _print_banner(url: str, provider: str) -> None:

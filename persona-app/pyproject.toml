@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "persona"
-version = "1.0.3"
+version = "1.1.0"
 description = "Persona — standalone AI agent app for teams and individuals"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-desktop = ["pywebview>=5.0"]
+desktop = ["pywebview>=5.0", "pystray>=0.19", "Pillow>=10.0"]
 dev = ["pytest>=8.0", "ruff>=0.4"]
 
 [project.scripts]

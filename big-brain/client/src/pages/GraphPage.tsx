@@ -5,7 +5,13 @@ import { api, type GraphData, GRAPH_COLORS } from '../lib/api';
 
 const KINDS = ['all', 'persona', 'chat', 'session', 'project', 'note'] as const;
 
-export default function GraphPage({ embedded = false }: { embedded?: boolean }) {
+export default function GraphPage({
+  embedded = false,
+  onOpenNote,
+}: {
+  embedded?: boolean;
+  onOpenNote?: (path: string) => void;
+}) {
   const [graph, setGraph] = useState<GraphData | null>(null);
   const [filter, setFilter] = useState<(typeof KINDS)[number]>('all');
   const [orphansOnly, setOrphansOnly] = useState(false);
@@ -55,7 +61,9 @@ export default function GraphPage({ embedded = false }: { embedded?: boolean }) 
 
   const handleNodeClick = (node: { id?: string }) => {
     if (node.id) {
-      if (embedded) {
+      if (embedded && onOpenNote) {
+        onOpenNote(node.id);
+      } else if (embedded) {
         sessionStorage.setItem('big-brain-open-note', node.id);
         window.parent.postMessage({ type: 'big-brain-open-note', path: node.id }, '*');
       } else {

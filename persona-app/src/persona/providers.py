@@ -2,26 +2,68 @@
 
 from __future__ import annotations
 
+import time
+
 import httpx
 
 from persona.config import Settings
 
+_OLLAMA_CACHE: dict[str, tuple[float, bool, list[str]]] = {}
+_CACHE_TTL = 5.0
+
+
+def _cache_key(settings: Settings) -> str:
+    return settings.ollama_base_url
+
+
+def _get_cached(settings: Settings) -> tuple[bool, list[str]] | None:
+    key = _cache_key(settings)
+    entry = _OLLAMA_CACHE.get(key)
+    if not entry:
+        return None
+    ts, available, models = entry
+    if time.time() - ts > _CACHE_TTL:
+        return None
+    return available, models
+
+
+def _set_cache(settings: Settings, available: bool, models: list[str]) -> None:
+    _OLLAMA_CACHE[_cache_key(settings)] = (time.time(), available, models)
+
 
 def ollama_available(settings: Settings) -> bool:
+    cached = _get_cached(settings)
+    if cached is not None:
+        return cached[0]
     try:
         r = httpx.get(f"{settings.ollama_base_url}/api/tags", timeout=1.5)
-        return r.status_code == 200
+        available = r.status_code == 200
+        models = (
+            [m.get("name", "") for m in r.json().get("models", []) if m.get("name")]
+            if available
+            else []
+        )
+        _set_cache(settings, available, models)
+        return available
     except Exception:
+        _set_cache(settings, False, [])
         return False
 
 
 def ollama_installed_models(settings: Settings) -> list[str]:
+    cached = _get_cached(settings)
+    if cached is not None:
+        return cached[1]
     try:
         r = httpx.get(f"{settings.ollama_base_url}/api/tags", timeout=2.0)
         if r.status_code != 200:
+            _set_cache(settings, False, [])
             return []
-        return [m.get("name", "") for m in r.json().get("models", []) if m.get("name")]
+        models = [m.get("name", "") for m in r.json().get("models", []) if m.get("name")]
+        _set_cache(settings, True, models)
+        return models
     except Exception:
+        _set_cache(settings, False, [])
         return []
 
 

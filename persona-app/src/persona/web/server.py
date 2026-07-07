@@ -28,9 +28,10 @@ from persona.rag import DocumentStore
 from persona.web.brain_routes import augment_message_with_rag, capture_turn, register_brain_routes
 from persona.user_config import get_user_config, save_user_config
 
-APP_VERSION = "1.0.3"
+APP_VERSION = "1.1.0"
 GITHUB_REPO = "ArmadilloArmada/CursorProjects"
-RELEASE_ASSET = "Persona-Windows-portable.zip"
+RELEASE_ASSET = "Persona-Setup.exe"
+RELEASE_ASSET_PORTABLE = "Persona-Windows-portable.zip"
 
 def _static_dir() -> Path:
     if getattr(sys, "frozen", False):
@@ -367,6 +368,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "latest": latest,
                 "url": data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases/latest"),
                 "download_url": f"https://github.com/{GITHUB_REPO}/releases/latest/download/{RELEASE_ASSET}",
+                "portable_download_url": f"https://github.com/{GITHUB_REPO}/releases/latest/download/{RELEASE_ASSET_PORTABLE}",
                 "name": data.get("name", ""),
             }
         except Exception:

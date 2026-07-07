@@ -5,11 +5,12 @@ Persona is your local AI agent workspace. Big Brain is your knowledge vault and 
 
 ## Install (end users)
 
-1. Download **Persona-Windows-portable.zip** from:
-   https://github.com/ArmadilloArmada/CursorProjects/releases/latest/download/Persona-Windows-portable.zip
-2. Unzip the **entire folder** (keep all files together).
+1. Download **Persona-Setup.exe** (recommended) or **Persona-Windows-portable.zip** from:
+   https://github.com/ArmadilloArmada/CursorProjects/releases/latest
+2. Run the installer — or unzip the portable folder (keep all files together).
 3. Double-click **Persona.exe** (or use **Run Persona.bat**).
-4. Use the **Chat** and **Big Brain** tabs in the header.
+4. Use the tray icon (purple P) to open or quit Persona.
+5. Use the **Chat** and **Big Brain** tabs in the header.
 
 Optional: run **Create Desktop Shortcut.bat** to pin Persona to your desktop.
 

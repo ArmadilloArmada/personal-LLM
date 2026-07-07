@@ -1,20 +1,45 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type TodayData } from '../lib/api';
 
-export default function TodayPage() {
+export default function TodayPage({
+  embedded = false,
+  onOpenNote,
+}: {
+  embedded?: boolean;
+  onOpenNote?: (path: string) => void;
+}) {
   const [data, setData] = useState<TodayData | null>(null);
 
   useEffect(() => {
     api.getToday().then(setData).catch(() => setData(null));
   }, []);
 
+  const openNote = (path: string) => {
+    if (embedded && onOpenNote) {
+      onOpenNote(path);
+      return;
+    }
+    sessionStorage.setItem('big-brain-open-note', path);
+  };
+
+  const NoteLink = ({ path, children }: { path: string; children: ReactNode }) =>
+    embedded ? (
+      <button type="button" className="link-btn" onClick={() => openNote(path)}>
+        {children}
+      </button>
+    ) : (
+      <Link to="/" onClick={() => openNote(path)}>
+        {children}
+      </Link>
+    );
+
   if (!data) {
     return <p className="empty-state">Loading today...</p>;
   }
 
   return (
-    <div className="today-page">
+    <div className={`today-page${embedded ? ' embedded' : ''}`}>
       <header className="today-header">
         <h2>Today · {data.date}</h2>
         <p className="today-sub">
@@ -26,9 +51,7 @@ export default function TodayPage() {
         <section className="today-card">
           <h3>Today&apos;s chat log</h3>
           {data.todayChatPath ? (
-            <Link to="/" onClick={() => sessionStorage.setItem('big-brain-open-note', data.todayChatPath!)}>
-              Open {data.todayChatPath}
-            </Link>
+            <NoteLink path={data.todayChatPath}>Open {data.todayChatPath}</NoteLink>
           ) : (
             <p className="muted">No chats captured yet today.</p>
           )}
@@ -39,9 +62,7 @@ export default function TodayPage() {
           <ul className="panel-list compact">
             {data.personas.map((p) => (
               <li key={p.path}>
-                <Link to="/" onClick={() => sessionStorage.setItem('big-brain-open-note', p.path)}>
-                  {p.title}
-                </Link>
+                <NoteLink path={p.path}>{p.title}</NoteLink>
               </li>
             ))}
             {data.personas.length === 0 && <li className="muted">No persona profiles yet</li>}
@@ -53,9 +74,7 @@ export default function TodayPage() {
           <ul className="panel-list compact">
             {data.recentNotes.map((n) => (
               <li key={n.path}>
-                <Link to="/" onClick={() => sessionStorage.setItem('big-brain-open-note', n.path)}>
-                  {n.title}
-                </Link>
+                <NoteLink path={n.path}>{n.title}</NoteLink>
                 <span className="note-kind">{n.path.split('/')[0]}</span>
               </li>
             ))}
@@ -67,9 +86,7 @@ export default function TodayPage() {
           <ul className="panel-list compact">
             {data.recentChats.map((c) => (
               <li key={c.path}>
-                <Link to="/" onClick={() => sessionStorage.setItem('big-brain-open-note', c.path)}>
-                  {c.title || c.path}
-                </Link>
+                <NoteLink path={c.path}>{c.title || c.path}</NoteLink>
               </li>
             ))}
           </ul>

@@ -295,7 +295,54 @@ function initBrainFrame() {
     }
     if (brainStatusOverlay) brainStatusOverlay.hidden = false;
   };
-  brainFrame.src = BRAIN_EMBED_URL;
+  fetch("/api/brain/start", { method: "POST" })
+    .catch(() => null)
+    .finally(() => {
+      brainFrame.src = BRAIN_EMBED_URL;
+    });
+}
+
+window.addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || data.type !== "big-brain-open-note" || !brainFrame?.contentWindow) return;
+  brainFrame.contentWindow.postMessage(
+    { type: "persona-embed-tab", tab: "vault", path: data.path },
+    "*"
+  );
+});
+
+async function loadHealthDashboard() {
+  const set = (id, text, ok) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle("ok", ok === true);
+    el.classList.toggle("err", ok === false);
+  };
+  try {
+    const [statusRes, brainRes] = await Promise.all([
+      fetch("/api/status"),
+      fetch("/api/brain/status"),
+    ]);
+    const status = statusRes.ok ? await statusRes.json() : null;
+    const brain = brainRes.ok ? await brainRes.json() : null;
+    set("health-persona", status ? `Running v${status.version || "?"}` : "Offline", !!status);
+    set(
+      "health-brain",
+      brain?.available ? "Connected" : "Offline",
+      brain?.available === true ? true : brain ? false : null
+    );
+    const ollama = status?.provider_info;
+    if (ollama?.ollama_available && ollama?.ollama_model_ready) {
+      set("health-ollama", `Ready (${ollama.ollama_model})`, true);
+    } else if (ollama?.ollama_available) {
+      set("health-ollama", "Running — model not pulled", false);
+    } else {
+      set("health-ollama", "Not detected", null);
+    }
+  } catch {
+    set("health-persona", "Unknown", null);
+  }
 }
 
 function showBrainBanner(message) {
@@ -1141,6 +1188,7 @@ $("#settings-btn")?.addEventListener("click", async () => {
   const s = await loadAppSettings();
   fillSettingsForm(s);
   await loadBrainSettings();
+  await loadHealthDashboard();
   await checkUpdates(true);
   settingsDialog.showModal();
 });

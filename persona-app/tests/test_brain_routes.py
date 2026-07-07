@@ -76,6 +76,14 @@ def test_updates_endpoint_repo(client: TestClient):
     assert RELEASE_ASSET in data.get("download_url", "")
 
 
+def test_brain_start_route(client: TestClient):
+    with patch("persona.big_brain.process.ensure_brain_server", return_value=True):
+        with patch("persona.web.brain_routes.is_brain_available", return_value=True):
+            r = client.post("/api/brain/start")
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+
+
 def test_session_end_route(client: TestClient):
     with patch(
         "persona.web.brain_routes.flush_session_capture",

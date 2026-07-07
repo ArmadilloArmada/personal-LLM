@@ -652,14 +652,68 @@ select:focus {
   overflow: hidden;
 }
 
+.embed-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.embed-tabs button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+}
+
+.embed-tabs button.active {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.embed-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .app-shell.embedded .app-main.embedded {
   height: 100%;
   min-height: 0;
 }
 
-.embed-shell .graph-container.embedded {
+.embed-shell .graph-container.embedded,
+.embed-shell .vault-layout.embedded,
+.embed-shell .today-page.embedded {
   flex: 1;
   min-height: 0;
+}
+
+.vault-layout.embedded {
+  height: 100%;
+}
+
+.today-page.embedded {
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  padding: 0;
+  font-size: inherit;
+  text-align: left;
+}
+
+.link-btn:hover {
+  color: var(--accent-hover);
+  background: none;
 }
 
 .settings-grid {

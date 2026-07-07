@@ -52,6 +52,13 @@ def register_brain_routes(app: FastAPI) -> None:
             "client_dist": str(brain_client_dist() or ""),
         }
 
+    @app.post("/api/brain/start")
+    def brain_start():
+        from persona.big_brain.process import ensure_brain_server
+
+        ok = ensure_brain_server()
+        return {"ok": ok, "available": is_brain_available()}
+
     @app.get("/api/brain/last-error")
     def brain_last_error():
         return get_last_brain_error()

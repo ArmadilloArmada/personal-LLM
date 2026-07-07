@@ -14,7 +14,7 @@ import WorkflowPanel from '../components/panels/WorkflowPanel';
 
 type PanelTab = 'backlinks' | 'workflows';
 
-export default function VaultPage() {
+export default function VaultPage({ embedded = false }: { embedded?: boolean }) {
   const [notes, setNotes] = useState<NoteMeta[]>([]);
   const [activePath, setActivePath] = useState<string | null>(null);
   const [note, setNote] = useState<NoteDetail | null>(null);
@@ -116,7 +116,7 @@ export default function VaultPage() {
   const workflowBlocks = note ? parseWorkflowBlocks(content) : [];
 
   return (
-    <div className="vault-layout">
+    <div className={`vault-layout${embedded ? ' embedded' : ''}`}>
       <VaultSidebar
         notes={notes}
         activePath={activePath}

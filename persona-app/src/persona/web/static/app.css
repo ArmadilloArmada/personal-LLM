@@ -1169,6 +1169,43 @@ body {
   white-space: pre-wrap;
 }
 
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.health-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.health-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.health-value {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.health-value.ok {
+  color: var(--success);
+}
+
+.health-value.err {
+  color: var(--danger);
+}
+
 /* Onboarding */
 
 .onboarding-dialog {
