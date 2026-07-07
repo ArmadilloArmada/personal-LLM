@@ -38,7 +38,8 @@ Everything stays on your PC:
 
 | Problem | Fix |
 |---------|-----|
-| App won't start | Check `%USERPROFILE%\.persona\error.log` and `startup.log` |
+| App won't start | Check `%USERPROFILE%\.persona\startup.log`. Try **Run Persona.bat** — if the server is up, open http://127.0.0.1:8765 in your browser. |
+| No window appears | Persona may still be running in the background. Open http://127.0.0.1:8765 or use **Run Persona.bat**. |
 | Big Brain offline | Check `%USERPROFILE%\.persona\brain.log` |
 | Old UI after update | Close Persona fully and reopen (no browser cache needed in app window) |
 | Port in use | Close other Persona instances; default port is 8765 |

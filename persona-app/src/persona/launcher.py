@@ -50,8 +50,11 @@ def _show_windows_error(message: str) -> None:
 def find_free_port(preferred: int = 8765) -> int:
     for port in range(preferred, preferred + 50):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            if sock.connect_ex(("127.0.0.1", port)) != 0:
+            try:
+                sock.bind(("127.0.0.1", port))
                 return port
+            except OSError:
+                continue
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
         return sock.getsockname()[1]
@@ -176,7 +179,18 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
 
 
 def _open_window(url: str) -> None:
-    """Open Persona in a native window — pywebview first, then Edge/Chrome app mode."""
+    """Open Persona in a native window — pywebview in dev, Edge app mode in frozen builds."""
+    if getattr(sys, "frozen", False):
+        _log_startup("launcher: frozen build — using Edge/Chrome app window")
+        if _open_browser_app_mode(url):
+            _log_startup("launcher: opened Edge/Chrome app window")
+            _keepalive()
+            return
+        _log_startup("launcher: browser app mode failed, falling back to default browser")
+        webbrowser.open(url)
+        _keepalive()
+        return
+
     try:
         import webview
 
