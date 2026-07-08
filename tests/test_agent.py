@@ -162,6 +162,7 @@ def test_web_app_v04_routes():
     assert client.get("/api/memory").status_code == 200
     assert client.get("/api/chat/history").status_code == 200
     assert client.get("/api/logs").status_code == 200
+    assert client.get("/api/personas/gallery").status_code == 200
     demo = client.get("/demo")
     assert demo.status_code == 200
     assert "Play demo" in demo.text

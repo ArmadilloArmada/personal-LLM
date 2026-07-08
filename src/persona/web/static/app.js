@@ -16,7 +16,7 @@ const state = {
   streamRawText: "",
   chatHistory: [],
   savedProvider: "auto",
-  appVersion: "1.0.1",
+  appVersion: "1.0.2",
 };
 
 const COLUMN_LABELS = {
@@ -692,6 +692,43 @@ async function loadProjects() {
 
 // --- Persona packs ---
 
+async function loadGallery() {
+  const list = $("#gallery-list");
+  if (!list) return;
+  const res = await fetch("/api/personas/gallery");
+  if (!res.ok) return;
+  const data = await res.json();
+  list.innerHTML = "";
+  (data.packs || []).forEach((pack) => {
+    const li = document.createElement("li");
+    li.className = "gallery-item";
+    const agents = (pack.agents || []).map((a) => a.emoji || "🤖").join("");
+    li.innerHTML = `
+      <button type="button" class="gallery-import-btn" data-pack="${pack.id}">
+        <span class="gallery-emoji">${pack.emoji || "📦"}</span>
+        <span class="gallery-meta">
+          <strong>${escapeHtml(pack.name)}</strong>
+          <small>${escapeHtml(pack.description || "")} · ${pack.agent_count} agents ${agents}</small>
+        </span>
+      </button>`;
+    list.appendChild(li);
+  });
+  list.querySelectorAll(".gallery-import-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const packId = btn.dataset.pack;
+      const res = await fetch(`/api/personas/gallery/${packId}/import`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Import failed");
+        return;
+      }
+      await loadPersonas();
+      btn.textContent = "✓ Imported";
+      btn.disabled = true;
+    });
+  });
+}
+
 $("#export-pack-btn")?.addEventListener("click", async () => {
   const custom = state.personas.filter((p) => p.is_custom);
   if (!custom.length) {
@@ -1128,7 +1165,9 @@ $("#onboarding-done")?.addEventListener("click", async () => {
   });
   $("#onboarding-dialog").close();
   setMode("project");
-  renderTemplates();
+  const side = projectTemplates.find((t) => t.id === "side-project");
+  if (side) startTemplate(side);
+  else renderTemplates();
 });
 
 document.querySelectorAll(".settings-tab").forEach((tab) => {
@@ -1269,6 +1308,7 @@ async function boot() {
     await loadDocs();
     await loadTemplates();
     renderTemplates();
+    await loadGallery();
     await loadChatHistory();
     const settingsData = await loadAppSettings();
     fillSettingsForm(settingsData);

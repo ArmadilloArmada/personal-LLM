@@ -292,14 +292,14 @@ class BundledProvider(LLMProvider):
         messages: list[Message],
         tools: list[dict[str, Any]] | None = None,
     ) -> LLMResponse:
-        return self._inner.chat(messages, tools=None)
+        return self._inner.chat(messages, tools=tools)
 
     def chat_stream(
         self,
         messages: list[Message],
         tools: list[dict[str, Any]] | None = None,
     ) -> Iterator[str]:
-        yield from self._inner.chat_stream(messages, tools=None)
+        yield from self._inner.chat_stream(messages, tools=tools)
 
 
 def get_provider(settings: Settings) -> LLMProvider:

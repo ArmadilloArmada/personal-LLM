@@ -29,7 +29,7 @@ from persona.providers import (
 from persona.rag import DocumentStore
 from persona.user_config import get_user_config, save_user_config
 
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.2"
 GITHUB_REPO = "ArmadilloArmada/personal-LLM"
 
 def _static_dir() -> Path:
@@ -214,6 +214,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="Custom persona not found or is built-in")
         crew.avatars.delete(persona_id)
         return {"deleted": persona_id}
+
+    @app.get("/api/personas/gallery")
+    def list_gallery():
+        return {"packs": crew.list_gallery_packs()}
+
+    @app.post("/api/personas/gallery/{pack_id}/import")
+    def import_gallery_pack(pack_id: str):
+        try:
+            personas = crew.import_gallery_pack(pack_id)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"imported_pack": pack_id, "personas": personas}
 
     @app.post("/api/personas/pack/export")
     def export_persona_pack(req: PackExportRequest):
