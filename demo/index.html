@@ -125,6 +125,15 @@
       padding: 0.6rem 1rem; border-radius: 999px; font-size: 0.85rem; max-width: 90vw;
       text-align: center; backdrop-filter: blur(8px); transition: opacity 0.3s;
     }
+    .record-intro {
+      position: fixed; inset: 0; z-index: 50; display: none;
+      background: var(--bg); flex-direction: column; align-items: center; justify-content: center;
+      gap: 1rem; text-align: center;
+    }
+    .record-intro.visible { display: flex; }
+    .record-intro h2 { font-size: 2rem; font-weight: 700; }
+    .record-intro p { color: var(--text-muted); font-size: 1.05rem; max-width: 480px; }
+    .record-intro .splash-logo { width: 72px; height: 72px; font-size: 2rem; border-radius: 16px; }
     .typing::after { content: "▋"; animation: blink 0.8s step-end infinite; margin-left: 2px; }
     @keyframes blink { 50% { opacity: 0; } }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -188,6 +197,12 @@
 
   <div class="caption" id="caption">Click Play demo to watch Persona plan a side project in ~60 seconds</div>
 
+  <div class="record-intro" id="record-intro">
+    <div class="logo-mark splash-logo" aria-hidden="true">P</div>
+    <h2>Persona</h2>
+    <p>Your private AI team on your desktop — plan projects, delegate to agents, track tasks locally.</p>
+  </div>
+
   <script>
     const AGENTS = {
       byte:    { name: "Byte",    role: "Programmer",     emoji: "💻", color: "#4F8CFF" },
@@ -230,6 +245,9 @@
     let step = 0;
     let playing = false;
     let timers = [];
+    const RECORD = new URLSearchParams(location.search).has("record");
+    const STEP_WAIT = RECORD ? 2000 : 1200;
+    const TYPE_MS = RECORD ? 24 : 18;
 
     const $ = (s) => document.querySelector(s);
     const agentsEl = $("#agents");
@@ -295,7 +313,7 @@
             i += 3;
             bubble.innerHTML = formatMd(fullText.slice(0, Math.min(i * 1.2, fullText.length)));
             messagesEl.scrollTop = messagesEl.scrollHeight;
-            timers.push(setTimeout(tick, 18));
+            timers.push(setTimeout(tick, TYPE_MS));
           } else {
             bubble.classList.remove("typing");
             bubble.innerHTML = formatMd(fullText);
@@ -356,6 +374,7 @@
         $("#play-btn").hidden = false;
         $("#restart-btn").hidden = false;
         setProgress();
+        document.body.dataset.demoComplete = "1";
         return;
       }
       const s = SCRIPT[step];
@@ -363,7 +382,7 @@
       setProgress();
       if (s.fn) await Promise.resolve(s.fn());
       step++;
-      if (playing) timers.push(setTimeout(runStep, s.wait || 1200));
+      if (playing) timers.push(setTimeout(runStep, s.wait || STEP_WAIT));
       else setProgress();
     }
 
@@ -403,8 +422,17 @@
     renderTemplates();
     setProgress();
 
-    if (new URLSearchParams(location.search).has("play")) {
-      timers.push(setTimeout(() => $("#play-btn")?.click(), 400));
+    if (new URLSearchParams(location.search).has("play") || RECORD) {
+      const start = () => $("#play-btn")?.click();
+      if (RECORD) {
+        $("#record-intro").classList.add("visible");
+        timers.push(setTimeout(() => {
+          $("#record-intro").classList.remove("visible");
+          start();
+        }, 2800));
+      } else {
+        timers.push(setTimeout(start, 400));
+      }
     }
   </script>
 </body>
