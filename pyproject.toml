@@ -34,6 +34,7 @@ packages = ["src/persona"]
 [tool.hatch.build.targets.wheel.force-include]
 "src/persona/web/static" = "persona/web/static"
 "personas" = "personas"
+"demo" = "demo"
 
 [tool.ruff]
 line-length = 100

@@ -38,6 +38,14 @@ def _static_dir() -> Path:
     return Path(__file__).parent / "static"
 
 
+def _demo_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        candidate = Path(sys._MEIPASS) / "demo"
+        if candidate.exists():
+            return candidate
+    return Path(__file__).resolve().parents[3] / "demo"
+
+
 STATIC_DIR = _static_dir()
 
 
@@ -580,6 +588,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/")
     def index():
         return FileResponse(STATIC_DIR / "index.html")
+
+    @app.get("/demo")
+    def interactive_demo():
+        demo_index = _demo_dir() / "index.html"
+        if not demo_index.exists():
+            raise HTTPException(status_code=404, detail="Interactive demo not found")
+        return FileResponse(demo_index)
 
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     return app

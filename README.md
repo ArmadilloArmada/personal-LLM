@@ -22,6 +22,8 @@
 
 See [DOWNLOAD.md](DOWNLOAD.md) if it won't open.
 
+**[▶ Try the interactive demo](demo/index.html)** — play in your browser, no install.
+
 ## What you get
 
 - **Built-in AI** — llama.cpp + local models shipped in the app (~1 GB download)
