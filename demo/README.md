@@ -13,6 +13,10 @@
 
 ## Try it
 
+### Watch the demo video (~36 seconds)
+
+**[demo/Persona-demo.mp4](Persona-demo.mp4)** — auto-recorded walkthrough (templates → Project → board → download)
+
 ### Online (after GitHub Pages deploy)
 
 https://armadilloarmada.github.io/personal-LLM/

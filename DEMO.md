@@ -2,9 +2,8 @@
 
 ## Interactive demo (browser)
 
-**Play in your browser — no install:** open [`demo/index.html`](demo/index.html) or visit `/demo` while Persona is running.
-
-Click **▶ Play demo** to watch templates → Project mode → kanban board in ~60 seconds.
+**Watch:** [demo/Persona-demo.mp4](demo/Persona-demo.mp4) (~36s)  
+**Play:** open [`demo/index.html`](demo/index.html) or visit `/demo` while Persona is running (`?play=1` auto-starts).
 
 After GitHub Pages deploy: `https://armadilloarmada.github.io/personal-LLM/`
 

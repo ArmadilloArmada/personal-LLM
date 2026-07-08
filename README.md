@@ -22,7 +22,7 @@
 
 See [DOWNLOAD.md](DOWNLOAD.md) if it won't open.
 
-**[▶ Try the interactive demo](demo/index.html)** — play in your browser (`?play=1` auto-starts).
+**[▶ Watch the demo video](demo/Persona-demo.mp4)** (~36s) · **[Try interactive demo](demo/index.html)** (`?play=1` auto-starts)
 
 ## Agent pack gallery
 
