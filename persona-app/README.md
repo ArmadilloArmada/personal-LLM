@@ -4,7 +4,7 @@
 
 ## Download (Windows)
 
-**https://github.com/ArmadilloArmada/CursorProjects/releases/latest/download/Persona-Windows-portable.zip**
+**https://github.com/ArmadilloArmada/Persona/releases/latest/download/Persona-Windows-portable.zip**
 
 1. Download and unzip the **entire folder**
 2. Double-click **Persona.exe** (or **Run Persona.bat**)

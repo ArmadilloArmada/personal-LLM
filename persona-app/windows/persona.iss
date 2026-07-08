@@ -4,7 +4,7 @@
 #define MyAppName "Persona"
 #define MyAppVersion "1.1.0"
 #define MyAppPublisher "Persona"
-#define MyAppURL "https://github.com/ArmadilloArmada/CursorProjects/releases/latest"
+#define MyAppURL "https://github.com/ArmadilloArmada/Persona/releases/latest"
 #define MyAppExeName "Persona.exe"
 
 [Setup]

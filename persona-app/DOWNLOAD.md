@@ -2,11 +2,11 @@
 
 ## Latest release (recommended)
 
-**Installer:** https://github.com/ArmadilloArmada/CursorProjects/releases/latest/download/Persona-Setup.exe
+**Installer:** https://github.com/ArmadilloArmada/Persona/releases/latest/download/Persona-Setup.exe
 
-**Portable zip:** https://github.com/ArmadilloArmada/CursorProjects/releases/latest/download/Persona-Windows-portable.zip
+**Portable zip:** https://github.com/ArmadilloArmada/Persona/releases/latest/download/Persona-Windows-portable.zip
 
-Release page: https://github.com/ArmadilloArmada/CursorProjects/releases/latest
+Release page: https://github.com/ArmadilloArmada/Persona/releases/latest
 
 ## Quick start
 

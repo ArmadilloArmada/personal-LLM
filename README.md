@@ -1,18 +1,26 @@
 # Persona + Big Brain
 
-Unified standalone app: **Persona** chat + **Big Brain** knowledge graph in one window.
+Unified standalone app: **Persona** AI agents + **Big Brain** knowledge vault in one window.
 
-## End users (Windows)
+[![Windows build](https://github.com/ArmadilloArmada/Persona/actions/workflows/build-windows.yml/badge.svg)](https://github.com/ArmadilloArmada/Persona/actions/workflows/build-windows.yml)
 
-Download: **https://github.com/ArmadilloArmada/CursorProjects/releases/latest/download/Persona-Windows-portable.zip**
+## Download (Windows)
 
-Unzip → run **Persona.exe** → use **Chat | Big Brain** tabs.
+| Install | Link |
+|---------|------|
+| **Installer (recommended)** | [Persona-Setup.exe](https://github.com/ArmadilloArmada/Persona/releases/latest/download/Persona-Setup.exe) |
+| Portable zip | [Persona-Windows-portable.zip](https://github.com/ArmadilloArmada/Persona/releases/latest/download/Persona-Windows-portable.zip) |
+
+[All releases](https://github.com/ArmadilloArmada/Persona/releases/latest)
+
+Run the installer or unzip → **Persona.exe** → use **Chat | Big Brain** tabs. Quit from the system tray icon.
 
 See [persona-app/DOWNLOAD.md](persona-app/DOWNLOAD.md) and [persona-app/windows/README.txt](persona-app/windows/README.txt).
 
 ## Developers
 
 ```powershell
+git clone https://github.com/ArmadilloArmada/Persona.git
 cd Persona
 npm install
 pip install -e persona-app[desktop,dev]
@@ -22,22 +30,20 @@ npm run dev
 | URL | App |
 |-----|-----|
 | http://127.0.0.1:8765 | Persona (Chat + Big Brain tab) |
-| http://127.0.0.1:8765/brain/embed | Big Brain graph (embedded) |
+| http://127.0.0.1:8765/brain/embed | Big Brain (embedded) |
 | http://127.0.0.1:3002 | Big Brain API (child process) |
 
 Data: `%USERPROFILE%\.persona\` (vault, DB, config, logs).
-
-`npm start` is for local dev only. Shipped builds come from GitHub Actions as **Persona-Windows-portable.zip**.
 
 ## Structure
 
 ```
 Persona/
-├── persona-app/     # Persona Python + web UI
+├── persona-app/     # Persona Python + web UI + Windows portable build
 ├── big-brain/       # Node vault + workflows + React UI
-├── packages/shared/ # Shared types (reference)
+├── packages/shared/ # Shared types
 ├── scripts/         # Dev launchers
-└── docs/            # DUAL_RAG.md, etc.
+└── docs/            # Architecture notes
 ```
 
 ## Commands
@@ -46,7 +52,7 @@ Persona/
 |---------|-------------|
 | `npm run dev` | Brain API + Persona server |
 | `npm run build` | Production build of Big Brain |
-| `npm test` | Run Persona Python tests (via pytest) |
+| `npm test` | Persona Python tests |
 
 ## Chat commands
 
@@ -54,4 +60,8 @@ Persona/
 
 ## Releases
 
-Tag `v*` triggers Windows portable build + GitHub Release. See `.github/workflows/build-unified-windows.yml`.
+Tag `v*` (e.g. `v1.1.0`) triggers the Windows CI build, installer, and GitHub Release. See [.github/workflows/build-windows.yml](.github/workflows/build-windows.yml).
+
+## License
+
+MIT
