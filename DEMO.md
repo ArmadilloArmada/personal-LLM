@@ -1,6 +1,16 @@
-# Persona — 90-second demo script
+# Persona — 90-second demo
 
-Use this script to record a product demo (Loom, OBS, or screen capture).
+## Interactive demo (browser)
+
+**Play in your browser — no install:** open [`demo/index.html`](demo/index.html) or visit `/demo` while Persona is running.
+
+Click **▶ Play demo** to watch templates → Project mode → kanban board in ~60 seconds.
+
+After GitHub Pages deploy: `https://armadilloarmada.github.io/personal-LLM/`
+
+## Video recording script
+
+Use this script to record a product demo (Loom, OBS, or screen capture) of the **real app**.
 
 ## Setup (before recording)
 

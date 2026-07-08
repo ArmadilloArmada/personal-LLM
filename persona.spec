@@ -13,6 +13,7 @@ a = Analysis(
     datas=[
         (str(src), "persona/web/static"),
         (str(root / "personas"), "personas"),
+        (str(root / "demo"), "demo"),
     ],
     hiddenimports=[
         "persona",
