@@ -52,6 +52,9 @@ class MemoryStore:
             lines.append(f"- {e['key']}: {e['value']}")
         return "\n".join(lines)
 
+    def entries(self) -> list[dict]:
+        return list(self._entries)
+
     def as_context(self) -> str:
         if not self._entries:
             return ""

@@ -99,6 +99,9 @@ class Crew:
     def refresh_context(self) -> None:
         self.team_workspace, self.doc_store = build_agent_context(self.settings)
 
+    def refresh_provider(self) -> None:
+        self.provider = get_provider(self.settings)
+
     def solo(self, persona_id: str, message: str) -> CrewResult:
         persona = get_persona(persona_id)
         agent = self._make_agent(persona)
@@ -147,7 +150,7 @@ class Crew:
                 for event in agent.iter_chat(prompt):
                     yield event
             else:
-                response = self.provider.chat(
+                response = get_provider(self.settings).chat(
                     [
                         Message(role="system", content=persona.system_prompt),
                         Message(role="user", content=prompt),
@@ -232,7 +235,7 @@ class Crew:
         persona = get_persona(persona_id)
         if persona.tools:
             return self._make_agent(persona).chat(prompt)
-        response = self.provider.chat(
+        response = get_provider(self.settings).chat(
             [
                 Message(role="system", content=persona.system_prompt),
                 Message(role="user", content=prompt),
@@ -379,6 +382,25 @@ class Crew:
         deleted = delete_custom_persona(persona_id, self.settings.workspace_personas_dir) or deleted
         reload_persona_registry(self.settings)
         return deleted
+
+    def export_persona_pack(
+        self,
+        persona_ids: list[str] | None = None,
+        name: str = "My Persona Pack",
+        description: str = "",
+    ) -> tuple[str, str]:
+        from persona.custom import export_persona_pack_yaml, pack_filename
+
+        ids = persona_ids or [p.id for p in PERSONAS.values() if p.is_custom]
+        yaml_content = export_persona_pack_yaml(ids, name=name, description=description)
+        return pack_filename(name), yaml_content
+
+    def import_persona_pack(self, content: str) -> list[dict]:
+        from persona.custom import import_persona_pack_yaml
+
+        imported = import_persona_pack_yaml(content, self.settings.custom_personas_dir)
+        reload_persona_registry(self.settings)
+        return [persona_to_dict(p, self.avatars) for p in imported]
 
 
 def _chunk_text(text: str, size: int = 24) -> Iterator[str]:

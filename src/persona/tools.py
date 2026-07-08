@@ -398,7 +398,20 @@ def tool_schemas(tools: list[Tool]) -> list[dict[str, Any]]:
     return [t.schema() for t in tools]
 
 
-def run_tool(tools: list[Tool], name: str, arguments: dict[str, Any]) -> str:
+def run_tool(
+    tools: list[Tool],
+    name: str,
+    arguments: dict[str, Any],
+    *,
+    allow_shell: bool = False,
+) -> str:
+    if name == "run_shell" and not allow_shell:
+        command = arguments.get("command", "")
+        return (
+            "Error: shell commands are disabled. "
+            f"The agent wanted to run: {command!r}. "
+            "Enable shell commands in Settings → Safety if you trust this action."
+        )
     for tool in tools:
         if tool.name == name:
             return tool.run(**arguments)

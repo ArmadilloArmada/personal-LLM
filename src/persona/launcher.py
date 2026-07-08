@@ -31,11 +31,6 @@ def _log_startup(message: str) -> None:
         fh.write(f"{time.strftime('%H:%M:%S')} {message}\n")
 
 
-def _log_error(exc: BaseException) -> None:
-    path = _persona_log_dir() / "error.log"
-    path.write_text(traceback.format_exc(), encoding="utf-8")
-
-
 def _show_windows_error(message: str) -> None:
     if sys.platform != "win32":
         return
@@ -47,40 +42,75 @@ def _show_windows_error(message: str) -> None:
         pass
 
 
-def find_free_port(preferred: int = 8765) -> int:
-    for port in range(preferred, preferred + 50):
+def _log_error(exc: BaseException | None = None) -> None:
+    path = _persona_log_dir() / "error.log"
+    if exc is not None:
+        text = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    else:
+        text = traceback.format_exc()
+    path.write_text(text, encoding="utf-8")
+
+
+def _configure_asyncio_for_windows() -> None:
+    if sys.platform != "win32":
+        return
+    import asyncio
+
+    if hasattr(asyncio, "WindowsSelectorEventLoopPolicy"):
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+
+def _can_bind_port(host: str, port: int) -> bool:
+    try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            if sock.connect_ex(("127.0.0.1", port)) != 0:
-                return port
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((host, port))
+        return True
+    except OSError:
+        return False
+
+
+def find_free_port(preferred: int = 8765, host: str = "127.0.0.1") -> int:
+    for port in range(preferred, preferred + 50):
+        if _can_bind_port(host, port):
+            return port
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
+        sock.bind((host, 0))
         return sock.getsockname()[1]
 
 
-def wait_for_server(host: str, port: int, timeout: float = 45.0) -> bool:
-    url = f"http://{host}:{port}/api/status"
+def wait_for_server(host: str, port: int, timeout: float = 90.0) -> bool:
+    """Wait until the local server responds — prefer lightweight /api/health."""
+    paths = ("/api/health", "/api/status")
     deadline = time.time() + timeout
     while time.time() < deadline:
-        try:
-            if httpx.get(url, timeout=1.0).status_code == 200:
-                return True
-        except Exception:
-            pass
-        time.sleep(0.2)
+        for path in paths:
+            url = f"http://{host}:{port}{path}"
+            try:
+                if httpx.get(url, timeout=1.5).status_code == 200:
+                    return True
+            except Exception:
+                pass
+        time.sleep(0.25)
     return False
 
 
-def _run_uvicorn(host: str, port: int) -> None:
+def _preflight_app() -> object:
+    _configure_asyncio_for_windows()
+    _log_startup("launcher: preflight app import")
+    from persona.web.server import app as fastapi_app
+
+    if getattr(sys, "frozen", False):
+        static = Path(sys._MEIPASS) / "persona" / "web" / "static"
+        _log_startup(f"launcher: static exists={static.exists()}")
+    _log_startup("launcher: preflight ok")
+    return fastapi_app
+
+
+def _run_uvicorn(host: str, port: int, fastapi_app: object) -> None:
     import uvicorn
 
     try:
-        _log_startup("uvicorn: importing app")
-        from persona.web.server import app as fastapi_app
-
-        if getattr(sys, "frozen", False):
-            static = Path(sys._MEIPASS) / "persona" / "web" / "static"
-            _log_startup(f"uvicorn: static exists={static.exists()}")
-
         _log_startup(f"uvicorn: starting on {host}:{port}")
         uvicorn.run(
             fastapi_app,
@@ -92,10 +122,38 @@ def _run_uvicorn(host: str, port: int) -> None:
             http="h11",
         )
         _log_startup("uvicorn: exited")
-    except Exception:
-        _log_error(RuntimeError("uvicorn failed"))
-        _log_startup("uvicorn: failed (see error.log)")
+    except Exception as exc:
+        _log_error(exc)
+        _log_startup(f"uvicorn: failed: {exc}")
         raise
+
+
+def _server_timeout_message(host: str, port: int) -> str:
+    log_dir = Path.home() / ".persona"
+    tail = ""
+    startup_log = log_dir / "startup.log"
+    if startup_log.exists():
+        lines = startup_log.read_text(encoding="utf-8", errors="replace").splitlines()
+        if lines:
+            tail = "\n\nRecent log:\n" + "\n".join(lines[-8:])
+    return (
+        "Persona could not start its local server.\n\n"
+        f"Tried: http://{host}:{port}\n\n"
+        f"Check:\n{log_dir}\\error.log\n{log_dir}\\startup.log"
+        f"{tail}"
+    )
+
+
+def _open_when_ready(host: str, port: int, url: str) -> None:
+    _log_startup("launcher: waiting for server (window mode)")
+    if not wait_for_server(host, port):
+        _log_startup("launcher: server did not respond in time")
+        _log_error(RuntimeError(f"Server did not respond on {host}:{port}"))
+        if getattr(sys, "frozen", False) and not os.environ.get("PERSONA_NO_MSGBOX"):
+            _show_windows_error(_server_timeout_message(host, port))
+        os._exit(1)
+    _log_startup("launcher: opening app window")
+    _open_window(url)
 
 
 def run_standalone(*, window: bool = False, port: int | None = None) -> None:
@@ -108,34 +166,33 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
     host = "127.0.0.1"
     if port is None:
         env_port = os.environ.get("PERSONA_WEB_PORT")
-        port = int(env_port) if env_port else find_free_port(settings.web_port)
+        port = int(env_port) if env_port else find_free_port(settings.web_port, host)
     provider = resolve_provider_mode(settings)
+
+    if provider == "bundled":
+        from persona.bundled import start_bundled_server
+
+        _log_startup("launcher: starting bundled llama-server")
+        if not start_bundled_server(settings):
+            _log_startup("launcher: bundled server failed — falling back to demo")
+            provider = "demo"
+            os.environ["PERSONA_PROVIDER"] = "demo"
 
     os.environ["PERSONA_PROVIDER"] = provider
     os.environ["PERSONA_WEB_PORT"] = str(port)
     _log_startup(f"launcher: provider={provider} port={port}")
 
     url = f"http://{host}:{port}"
+    fastapi_app = _preflight_app()
 
     if window:
-        server = threading.Thread(target=_run_uvicorn, args=(host, port), daemon=True)
-        server.start()
-        _log_startup("launcher: waiting for server (window mode)")
-        if not wait_for_server(host, port):
-            message = (
-                "Persona could not start its local server.\n\n"
-                "Check %USERPROFILE%\\.persona\\error.log and startup.log"
-            )
-            _log_startup("launcher: server did not respond in time")
-            _log_error(RuntimeError(f"Server did not respond on {host}:{port}"))
-            if getattr(sys, "frozen", False):
-                if not os.environ.get("PERSONA_NO_MSGBOX"):
-                    _show_windows_error(message)
-                sys.exit(1)
-            print("Persona failed to start.", file=sys.stderr)
-            sys.exit(1)
-        _log_startup("launcher: opening app window")
-        _open_window(url)
+        # uvicorn must run on the main thread on Windows; open the UI once ready.
+        threading.Thread(
+            target=_open_when_ready,
+            args=(host, port, url),
+            daemon=True,
+        ).start()
+        _run_uvicorn(host, port, fastapi_app)
         return
 
     threading.Thread(
@@ -146,32 +203,62 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
     if not getattr(sys, "frozen", False):
         _print_banner(url, provider)
 
-    _run_uvicorn(host, port)
+    _run_uvicorn(host, port, fastapi_app)
+
+
+def _frozen_windows() -> bool:
+    return getattr(sys, "frozen", False) and sys.platform == "win32"
 
 
 def _open_window(url: str) -> None:
-    """Open Persona in a native window — pywebview first, then Edge/Chrome app mode."""
-    try:
-        import webview
+    """Open Persona in a native window — Edge app mode on frozen Windows, else pywebview."""
+    # pywebview often exits immediately in PyInstaller builds; Edge --app is reliable.
+    if _frozen_windows():
+        _log_startup("launcher: frozen Windows — trying Edge/Chrome app mode first")
+        if _open_browser_app_mode(url):
+            _log_startup("launcher: opened Edge/Chrome app window")
+            _keepalive()
+            return
+        _log_startup("launcher: Edge/Chrome not found, trying pywebview")
 
-        _log_startup("launcher: starting pywebview")
-        webview.create_window("Persona", url, width=1280, height=860, min_size=(900, 600))
-        if sys.platform == "win32":
-            webview.start(gui="edgechromium")
-        else:
-            webview.start()
+    if _try_pywebview(url):
+        _log_startup("launcher: pywebview window closed")
         return
-    except Exception as exc:
-        _log_startup(f"launcher: pywebview failed: {exc}")
 
     if _open_browser_app_mode(url):
-        _log_startup("launcher: opened Edge/Chrome app window")
+        _log_startup("launcher: opened Edge/Chrome app window (fallback)")
         _keepalive()
         return
 
     _log_startup("launcher: falling back to default browser")
     webbrowser.open(url)
     _keepalive()
+
+
+def _try_pywebview(url: str) -> bool:
+    """Return True if pywebview ran until the user closed the window."""
+    try:
+        import webview
+    except Exception as exc:
+        _log_startup(f"launcher: pywebview import failed: {exc}")
+        return False
+
+    try:
+        _log_startup("launcher: starting pywebview")
+        webview.create_window("Persona", url, width=1280, height=860, min_size=(900, 600))
+        started = time.time()
+        if sys.platform == "win32":
+            webview.start(gui="edgechromium")
+        else:
+            webview.start()
+        elapsed = time.time() - started
+        if _frozen_windows() and elapsed < 2.0:
+            _log_startup(f"launcher: pywebview exited too fast ({elapsed:.1f}s)")
+            return False
+        return True
+    except Exception as exc:
+        _log_startup(f"launcher: pywebview failed: {exc}")
+        return False
 
 
 def _open_browser_app_mode(url: str) -> bool:
