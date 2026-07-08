@@ -8,7 +8,7 @@
 
 1. Download and **unzip the whole folder**
 2. Double-click **`Persona.exe`**
-3. The app opens with **built-in offline AI** (first launch may take ~30s while the model loads)
+3. Pick a project template — Captain and the crew plan it with you
 
 Optional: run **`Create Desktop Shortcut.bat`** to add Persona to your desktop.
 
@@ -17,9 +17,11 @@ See [DOWNLOAD.md](DOWNLOAD.md) if it won't open.
 ## What you get
 
 - **Built-in AI** — llama.cpp + local models shipped in the app (~1 GB download)
+- **Project templates** — side projects, debugging, study plans, blog posts, and more
 - **Model manager** — Fast / Balanced / Quality tiers in Settings
-- **Modern dark UI** with light mode toggle
+- **Modern dark UI** with light mode toggle, chat history, and onboarding
 - **5 built-in agents** — Byte, Sunny, Nova, Sketch, Captain
+- **3 persona packs** — Startup crew, Writer's room, Study squad
 - **Solo, Group, Project, Board** modes
 - **Team workspaces**, **knowledge base**, **custom agents**
 
@@ -31,6 +33,7 @@ See [DOWNLOAD.md](DOWNLOAD.md) if it won't open.
 | **Quality model** | Download Llama 3.2 3B from Settings (~2 GB, best answers) |
 | **Ollama** | Optional advanced local setup |
 | **Cloud API** | OpenAI-compatible API key |
+| **Demo** | Instant scripted replies for exploring the UI |
 
 ## Upgrade options (optional)
 

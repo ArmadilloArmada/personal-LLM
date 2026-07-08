@@ -89,13 +89,11 @@ def ollama_ready(settings: Settings) -> bool:
 
 
 def resolve_provider_mode(settings: Settings) -> str:
-    """Pick provider — bundled AI first on frozen builds, then Ollama/cloud."""
-    if getattr(sys, "frozen", False) and not os.environ.get("PERSONA_PROVIDER"):
+    """Pick the best provider from saved settings and live availability."""
+    mode = (settings.provider or "auto").lower()
+    if mode == "auto" and getattr(sys, "frozen", False) and not os.environ.get("PERSONA_PROVIDER"):
         if bundled_ready(settings):
             return "bundled"
-        return "demo"
-
-    mode = (settings.provider or "auto").lower()
     if mode == "demo":
         return "demo"
     if mode == "bundled":

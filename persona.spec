@@ -10,7 +10,10 @@ a = Analysis(
     [str(root / "persona_exe.py")],
     pathex=[str(root / "src")],
     binaries=[],
-    datas=[(str(src), "persona/web/static")],
+    datas=[
+        (str(src), "persona/web/static"),
+        (str(root / "personas"), "personas"),
+    ],
     hiddenimports=[
         "persona",
         "persona.launcher",
@@ -31,6 +34,9 @@ a = Analysis(
         "persona.memory",
         "persona.models",
         "persona.config",
+        "persona.templates",
+        "persona.chat_history",
+        "persona.user_config",
         "uvicorn",
         "uvicorn.logging",
         "uvicorn.loops",

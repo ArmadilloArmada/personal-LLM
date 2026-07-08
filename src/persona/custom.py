@@ -134,7 +134,32 @@ def merge_persona_registry(custom: dict[str, Persona]) -> None:
     PERSONAS.update(custom)
 
 
+def _shipped_persona_dirs() -> list[Path]:
+    """Built-in persona packs shipped with the app."""
+    dirs: list[Path] = []
+    here = Path(__file__).resolve()
+    candidates = [
+        here.parents[1] / "personas",
+        here.parents[1] / "personas" / "packs",
+        here.parents[2] / "personas",
+        here.parents[2] / "personas" / "packs",
+    ]
+    import sys
+
+    if getattr(sys, "frozen", False):
+        meipass = Path(getattr(sys, "_MEIPASS", ""))
+        candidates.extend([meipass / "personas", meipass / "personas" / "packs"])
+    for path in candidates:
+        if path.exists() and path not in dirs:
+            dirs.append(path)
+    return dirs
+
+
 def reload_persona_registry(settings) -> list[Persona]:
-    custom = load_custom_personas(settings.custom_personas_dir, settings.workspace_personas_dir)
+    custom = load_custom_personas(
+        settings.custom_personas_dir,
+        settings.workspace_personas_dir,
+        *_shipped_persona_dirs(),
+    )
     merge_persona_registry(custom)
     return list(PERSONAS.values())

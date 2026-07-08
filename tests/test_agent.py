@@ -157,3 +157,42 @@ def test_web_app_v04_routes():
     assert "document_count" in status
     assert "provider_info" in status
     assert status["standalone"] is True
+    assert "version" in status
+    assert client.get("/api/settings").status_code == 200
+    assert client.get("/api/memory").status_code == 200
+    assert client.get("/api/chat/history").status_code == 200
+    assert client.get("/api/logs").status_code == 200
+
+
+def test_settings_persistence(tmp_path: Path, monkeypatch):
+    from persona.user_config import get_user_config, save_user_config
+
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    import persona.user_config as uc
+
+    uc._store = None
+
+    settings = Settings(provider="ollama", ollama_model="llama3.2", workspace=tmp_path)
+    save_user_config(settings, onboarding_completed=True)
+
+    cfg = get_user_config().all()
+    assert cfg["provider"] == "ollama"
+    assert cfg["onboarding_completed"] is True
+
+
+def test_shell_blocked_by_default(settings: Settings, workspace: Path):
+    from persona.tools import RunShellTool, run_tool
+
+    tools = [RunShellTool(workspace)]
+    result = run_tool(tools, "run_shell", {"command": "echo hi"}, allow_shell=False)
+    assert "disabled" in result.lower()
+
+
+def test_chat_history_store(tmp_path: Path):
+    from persona.chat_history import ChatHistoryStore
+
+    store = ChatHistoryStore(tmp_path / "chat_history.json")
+    store.append("default", "solo", {"role": "user", "content": "hi"}, "byte")
+    history = store.get("default", "solo", "byte")
+    assert len(history) == 1
+    assert history[0]["content"] == "hi"

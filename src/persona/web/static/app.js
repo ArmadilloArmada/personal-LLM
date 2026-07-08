@@ -1,4 +1,4 @@
-/** Persona — modern UI */
+/** Persona — modern UI v0.9 */
 
 const state = {
   mode: "solo",
@@ -13,6 +13,10 @@ const state = {
   boardProject: null,
   streamBubble: null,
   streamPersonaId: null,
+  streamRawText: "",
+  chatHistory: [],
+  savedProvider: "auto",
+  appVersion: "1.0.0",
 };
 
 const COLUMN_LABELS = {
@@ -44,6 +48,8 @@ const personaForm = $("#persona-form");
 const workspaceSelect = $("#workspace-select");
 const docUpload = $("#doc-upload");
 const docList = $("#doc-list");
+const splash = $("#startup-splash");
+const splashStatus = $("#splash-status");
 
 function avatarHtml(persona, size = 40) {
   if (persona?.avatar_url) {
@@ -58,14 +64,49 @@ function personaMetaLabel(p) {
   return `<strong>${escapeHtml(p.name)}</strong> · ${escapeHtml(p.role)}`;
 }
 
-function personaById(id) {
-  return state.personas.find((p) => p.id === id);
-}
-
 function escapeHtml(text) {
   const d = document.createElement("div");
-  d.textContent = text;
+  d.textContent = text ?? "";
   return d.innerHTML;
+}
+
+function renderMarkdown(text) {
+  if (!text) return "";
+  let html = escapeHtml(text);
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+    `<pre class="md-code"><code>${code.trim()}</code></pre>`
+  );
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+  html = html.replace(/^[-*] (.+)$/gm, "<li>$1</li>");
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
+  html = html.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener">$1</a>'
+  );
+  html = html.replace(/\n/g, "<br>");
+  return html;
+}
+
+function setBubbleContent(bubble, text, asMarkdown = true) {
+  if (!bubble) return;
+  if (asMarkdown) {
+    bubble.innerHTML = renderMarkdown(text);
+    bubble.classList.add("md-content");
+  } else {
+    bubble.textContent = text;
+  }
+}
+
+function hideSplash() {
+  if (!splash) return;
+  splash.classList.add("hidden");
+  setTimeout(() => splash.remove(), 400);
+}
+
+function setSplashStatus(text) {
+  if (splashStatus) splashStatus.textContent = text;
 }
 
 // --- UI ---
@@ -79,20 +120,36 @@ function renderPersonaGrid() {
     btn.style.setProperty("--persona-color", p.color);
     btn.dataset.id = p.id;
     if (state.mode === "solo" && p.id === state.selectedId) btn.classList.add("selected");
-    if (state.mode !== "solo" && state.mode !== "board" && state.activeIds.includes(p.id)) btn.classList.add("in-group");
+    if (state.mode !== "solo" && state.mode !== "board" && state.activeIds.includes(p.id)) {
+      btn.classList.add("in-group");
+    }
     const badge = p.is_custom ? `<span class="custom-badge">${p.company || "custom"}</span>` : "";
+    const deleteBtn = p.is_custom
+      ? `<button type="button" class="persona-delete" data-id="${p.id}" title="Delete agent">×</button>`
+      : "";
     btn.innerHTML = `
+      ${deleteBtn}
       <div class="persona-avatar">${avatarHtml(p)}</div>
       <div class="persona-info">
         <h3>${p.name}${badge}</h3>
         <p>${p.role}</p>
       </div>`;
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (e) => {
+      if (e.target.closest(".persona-delete")) return;
       if (state.mode === "solo") {
         state.selectedId = p.id;
         renderPersonaGrid();
         renderActiveAgents();
+        loadChatHistory();
       }
+    });
+    const del = btn.querySelector(".persona-delete");
+    del?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm(`Delete custom agent "${p.name}"?`)) return;
+      await fetch(`/api/personas/${p.id}`, { method: "DELETE" });
+      if (state.selectedId === p.id) state.selectedId = "byte";
+      await loadPersonas();
     });
     grid.appendChild(btn);
   });
@@ -119,6 +176,10 @@ function renderActiveAgents() {
   });
 }
 
+function personaById(id) {
+  return state.personas.find((p) => p.id === id);
+}
+
 function setTalking(personaId) {
   document.querySelectorAll(".agent-chip").forEach((el) => {
     el.classList.toggle("is-active", el.dataset.id === personaId);
@@ -129,7 +190,7 @@ function clearTalking() {
   document.querySelectorAll(".agent-chip").forEach((el) => el.classList.remove("is-active"));
 }
 
-function addMessage({ role, personaId, content, phase, streaming = false }) {
+function addMessage({ role, personaId, content, phase, streaming = false, persist = true }) {
   messages.querySelector(".welcome-bubble")?.remove();
   const div = document.createElement("div");
   div.className = `msg ${role}`;
@@ -140,13 +201,21 @@ function addMessage({ role, personaId, content, phase, streaming = false }) {
       <div class="mini-avatar">${p ? avatarHtml(p, 32) : ""}</div>
       <div>
         <div class="meta" style="--persona-color:${p?.color || "#666"}">${personaMetaLabel(p)}${phaseLabel}</div>
-        <div class="bubble${streaming ? " streaming" : ""}">${escapeHtml(content)}</div>
+        <div class="bubble${streaming ? " streaming" : ""}"></div>
       </div>`;
+    const bubble = div.querySelector(".bubble");
+    setBubbleContent(bubble, content, !streaming);
   } else {
-    div.innerHTML = `<div class="bubble">${escapeHtml(content)}</div>`;
+    div.innerHTML = `<div class="bubble"></div>`;
+    setBubbleContent(div.querySelector(".bubble"), content, true);
   }
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight;
+  if (persist) {
+    const entry = { role, personaId: personaId || null, content, phase: phase || null };
+    state.chatHistory.push(entry);
+    persistChatHistory();
+  }
   return div.querySelector(".bubble");
 }
 
@@ -166,22 +235,35 @@ function startStreamBubble(personaId, phase) {
   messages.scrollTop = messages.scrollHeight;
   state.streamBubble = div.querySelector(".bubble");
   state.streamPersonaId = personaId;
+  state.streamRawText = "";
   setTalking(personaId);
   return state.streamBubble;
 }
 
 function appendStreamToken(text) {
   if (!state.streamBubble) return;
-  state.streamBubble.textContent += text;
+  state.streamRawText += text;
+  state.streamBubble.textContent = state.streamRawText;
   messages.scrollTop = messages.scrollHeight;
 }
 
 function finishStreamBubble() {
+  if (state.streamBubble && state.streamRawText) {
+    setBubbleContent(state.streamBubble, state.streamRawText, true);
+    const entry = {
+      role: "assistant",
+      personaId: state.streamPersonaId,
+      content: state.streamRawText,
+      phase: null,
+    };
+    state.chatHistory.push(entry);
+    persistChatHistory();
+    if (state.voiceEnabled) speak(state.streamRawText, state.streamPersonaId);
+  }
   state.streamBubble?.classList.remove("streaming");
-  const text = state.streamBubble?.textContent || "";
-  if (state.voiceEnabled && text) speak(text, state.streamPersonaId);
   state.streamBubble = null;
   state.streamPersonaId = null;
+  state.streamRawText = "";
   clearTalking();
 }
 
@@ -204,6 +286,107 @@ function setMode(mode) {
   if (mode === "board") loadBoard();
   renderPersonaGrid();
   renderActiveAgents();
+  if (mode !== "board") loadChatHistory();
+}
+
+function restoreMessagesFromHistory(history) {
+  messages.querySelectorAll(".msg").forEach((el) => el.remove());
+  if (!history.length) return;
+  messages.querySelector(".welcome-bubble")?.remove();
+  history.forEach((m) => {
+    addMessage({
+      role: m.role,
+      personaId: m.personaId,
+      content: m.content,
+      phase: m.phase,
+      persist: false,
+    });
+  });
+}
+
+async function loadChatHistory() {
+  const params = new URLSearchParams({
+    workspace_id: state.workspaceId,
+    mode: state.mode,
+  });
+  if (state.mode === "solo") params.set("persona_id", state.selectedId);
+  const res = await fetch(`/api/chat/history?${params}`);
+  if (!res.ok) return;
+  const data = await res.json();
+  state.chatHistory = data.messages || [];
+  restoreMessagesFromHistory(state.chatHistory);
+  state.chatHistory = [...(data.messages || [])];
+}
+
+async function persistChatHistory() {
+  await fetch("/api/chat/history", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      workspace_id: state.workspaceId,
+      mode: state.mode,
+      persona_id: state.mode === "solo" ? state.selectedId : null,
+      messages: state.chatHistory,
+    }),
+  });
+}
+
+async function clearChatHistory() {
+  const params = new URLSearchParams({
+    workspace_id: state.workspaceId,
+    mode: state.mode,
+  });
+  if (state.mode === "solo") params.set("persona_id", state.selectedId);
+  await fetch(`/api/chat/history?${params}`, { method: "DELETE" });
+  state.chatHistory = [];
+  messages.querySelectorAll(".msg").forEach((el) => el.remove());
+  if (!messages.querySelector(".welcome-bubble")) {
+    const welcome = document.createElement("div");
+    welcome.className = "welcome-bubble";
+    welcome.id = "welcome-bubble";
+    welcome.innerHTML = `
+      <h3>What would you like to work on?</h3>
+      <p>Pick a template — Captain and the crew will plan it with you in Project mode.</p>
+      <div class="template-grid" id="template-grid"></div>`;
+    messages.appendChild(welcome);
+    renderTemplates();
+  }
+}
+
+// --- Project templates ---
+
+let projectTemplates = [];
+
+async function loadTemplates() {
+  const res = await fetch("/api/templates");
+  if (!res.ok) return;
+  const data = await res.json();
+  projectTemplates = data.templates || [];
+}
+
+function renderTemplates() {
+  const grid = $("#template-grid");
+  if (!grid || !projectTemplates.length) return;
+  grid.innerHTML = "";
+  projectTemplates.forEach((t) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "template-card";
+    btn.innerHTML = `
+      <span class="template-emoji">${t.emoji || "✨"}</span>
+      <strong>${escapeHtml(t.title)}</strong>
+      <span class="template-desc">${escapeHtml(t.description || "")}</span>`;
+    btn.addEventListener("click", () => startTemplate(t));
+    grid.appendChild(btn);
+  });
+}
+
+function startTemplate(template) {
+  setMode(template.mode || "project");
+  messages.querySelector(".welcome-bubble")?.remove();
+  input.value = template.prompt || "";
+  input.focus();
+  composer.requestSubmit();
 }
 
 // --- Voice ---
@@ -259,6 +442,15 @@ voiceToggle.addEventListener("click", () => {
 
 // --- Streaming SSE ---
 
+function showToolWarning(name, args) {
+  if (name !== "run_shell") return;
+  const banner = document.createElement("div");
+  banner.className = "tool-warning";
+  banner.innerHTML = `<strong>Shell command requested:</strong> <code>${escapeHtml(args?.command || "")}</code>`;
+  messages.appendChild(banner);
+  messages.scrollTop = messages.scrollHeight;
+}
+
 async function consumeSSE(url, body) {
   const res = await fetch(url, {
     method: "POST",
@@ -302,6 +494,7 @@ function handleStreamEvent(eventType, data) {
     return;
   }
   if (eventType === "tool") {
+    showToolWarning(data.name, data.args);
     appendStreamToken(`\n[${data.name}]...\n`);
     return;
   }
@@ -348,7 +541,7 @@ async function sendMessage(text) {
     addMessage({
       role: "assistant",
       personaId: "captain",
-      content: `Oops — is your LLM provider running?\n\n${err.message}`,
+      content: `Something went wrong. Check Settings or logs.\n\n${err.message}`,
     });
   } finally {
     state.loading = false;
@@ -438,6 +631,40 @@ boardSelect?.addEventListener("change", async () => {
   if (res.ok) renderBoard(await res.json());
 });
 
+$("#add-task-btn")?.addEventListener("click", () => {
+  if (!state.projectId) {
+    alert("Create a project in Project mode first.");
+    return;
+  }
+  const assigneeSelect = $("#task-assignee");
+  assigneeSelect.innerHTML = "";
+  state.personas.forEach((p) => {
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = p.name;
+    assigneeSelect.appendChild(opt);
+  });
+  $("#task-dialog").showModal();
+});
+
+$("#cancel-task")?.addEventListener("click", () => $("#task-dialog").close());
+
+$("#task-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData($("#task-form"));
+  const payload = Object.fromEntries(fd.entries());
+  const res = await fetch(`/api/projects/${state.projectId}/tasks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (res.ok) {
+    $("#task-dialog").close();
+    $("#task-form").reset();
+    renderBoard(await res.json());
+  }
+});
+
 // --- API helpers ---
 
 async function loadPersonas() {
@@ -516,18 +743,25 @@ workspaceSelect?.addEventListener("change", async () => {
   await fetch(`/api/workspaces/${state.workspaceId}/activate`, { method: "POST" });
   await loadDocs();
   await loadProjects();
+  await loadChatHistory();
   if (state.mode === "board") loadBoard();
 });
 
-$("#new-workspace-btn")?.addEventListener("click", async () => {
-  const name = prompt("Team workspace name:");
-  if (!name) return;
-  const company = prompt("Company name (optional):") || "";
+const workspaceDialog = $("#workspace-dialog");
+$("#new-workspace-btn")?.addEventListener("click", () => workspaceDialog.showModal());
+$("#cancel-workspace")?.addEventListener("click", () => workspaceDialog.close());
+
+$("#workspace-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData($("#workspace-form"));
+  const payload = Object.fromEntries(fd.entries());
   await fetch("/api/workspaces", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, company }),
+    body: JSON.stringify(payload),
   });
+  workspaceDialog.close();
+  $("#workspace-form").reset();
   await loadWorkspaces();
 });
 
@@ -561,9 +795,49 @@ docUpload?.addEventListener("change", async () => {
   loadDocs();
 });
 
+// --- Memory ---
+
+async function loadMemory() {
+  const res = await fetch("/api/memory");
+  const data = await res.json();
+  const list = $("#memory-list");
+  list.innerHTML = "";
+  (data.entries || []).forEach((entry) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<strong>${escapeHtml(entry.key)}</strong>: ${escapeHtml(entry.value)}`;
+    const btn = document.createElement("button");
+    btn.textContent = "Delete";
+    btn.addEventListener("click", async () => {
+      await fetch(`/api/memory/${encodeURIComponent(entry.key)}`, { method: "DELETE" });
+      loadMemory();
+    });
+    li.appendChild(btn);
+    list.appendChild(li);
+  });
+}
+
+$("#memory-btn")?.addEventListener("click", () => {
+  loadMemory();
+  $("#memory-dialog").showModal();
+});
+$("#close-memory")?.addEventListener("click", () => $("#memory-dialog").close());
+
+$("#memory-add-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData($("#memory-add-form"));
+  await fetch("/api/memory", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(Object.fromEntries(fd.entries())),
+  });
+  $("#memory-add-form").reset();
+  loadMemory();
+});
+
 // --- Status & settings ---
 
 const statusBanner = $("#status-banner");
+const updateBanner = $("#update-banner");
 const settingsDialog = $("#settings-dialog");
 const settingsForm = $("#settings-form");
 const providerSelect = $("#provider-select");
@@ -666,12 +940,40 @@ async function loadBundledSettings() {
   return bundled;
 }
 
+async function loadAppSettings() {
+  const res = await fetch("/api/settings");
+  if (!res.ok) return null;
+  return res.json();
+}
+
+function fillSettingsForm(data) {
+  if (!data) return;
+  state.savedProvider = data.provider || "auto";
+  providerSelect.value = state.savedProvider;
+  $("#ollama-url").value = data.ollama_base_url || "";
+  $("#ollama-model").value = data.ollama_model || "";
+  $("#openai-url").value = data.openai_base_url || "";
+  $("#openai-model").value = data.openai_model || "";
+  $("#openai-key").value = "";
+  $("#openai-key").placeholder = data.openai_api_key_set ? "•••••••• (leave blank to keep)" : "sk-…";
+  $("#allow-shell").checked = !!data.allow_shell_commands;
+  $("#app-version").textContent = data.version || state.appVersion;
+  const datalist = $("#ollama-models-list");
+  datalist.innerHTML = "";
+  (data.ollama_models || []).forEach((m) => {
+    const opt = document.createElement("option");
+    opt.value = m;
+    datalist.appendChild(opt);
+  });
+}
+
 async function loadAppStatus() {
   const res = await fetch("/api/status");
   const data = await res.json();
   const info = data.provider_info || {};
   const mode = data.provider || "demo";
   const bundled = info.bundled || {};
+  state.appVersion = data.version || state.appVersion;
 
   statusBanner.hidden = false;
   if (mode === "bundled") {
@@ -683,8 +985,16 @@ async function loadAppStatus() {
   } else if (mode === "demo") {
     statusBanner.className = "status-banner demo";
     statusBanner.innerHTML =
-      "<strong>Demo mode</strong> — scripted replies. " +
-      "Built-in AI is included — open Settings to enable it.";
+      "<strong>Demo mode</strong> — works without setup. " +
+      '<button type="button" class="inline-link" id="banner-settings">Open Settings</button> ' +
+      "to enable built-in AI, Ollama, or a cloud API.";
+    $("#banner-settings")?.addEventListener("click", () => {
+      loadAppSettings().then((s) => {
+        fillSettingsForm(s);
+        loadBundledSettings();
+        settingsDialog.showModal();
+      });
+    });
   } else if (mode === "ollama" && info.ollama_available && !info.ollama_model_ready) {
     statusBanner.className = "status-banner demo";
     const model = info.ollama_model || "llama3.2";
@@ -700,7 +1010,7 @@ async function loadAppStatus() {
       "does not support tools. Chat works, but file/memory tools are disabled.";
   } else if (mode === "ollama") {
     statusBanner.className = "status-banner live";
-    statusBanner.innerHTML = "<strong>Ollama connected.</strong>";
+    statusBanner.innerHTML = "<strong>Ollama connected.</strong> Using local AI.";
   } else {
     statusBanner.className = "status-banner live";
     statusBanner.innerHTML = `<strong>${mode === "openai" ? "Cloud AI" : mode}</strong> connected.`;
@@ -719,22 +1029,110 @@ async function loadAppStatus() {
       `Active: ${mode} | Built-in AI: ${builtin} | Ollama: ${info.ollama_available ? "yes" : "no"} | ` +
       `API key: ${info.openai_configured ? "yes" : "no"}`;
   }
+
+  return data;
 }
 
+async function checkUpdates(showInSettings = false) {
+  const res = await fetch("/api/updates");
+  const data = await res.json();
+  if (data.available) {
+    const msg = `Update available: v${data.latest} (you have v${data.current})`;
+    if (showInSettings) {
+      $("#update-info").innerHTML = `${msg} — <a href="${data.url}" target="_blank" rel="noopener">Download</a>`;
+    } else {
+      updateBanner.hidden = false;
+      updateBanner.className = "status-banner update";
+      updateBanner.innerHTML = `${msg} — <a href="${data.url}" target="_blank" rel="noopener">Get update</a>`;
+    }
+  } else if (showInSettings) {
+    $("#update-info").textContent = `You're on the latest version (v${data.current || state.appVersion}).`;
+  }
+  return data;
+}
+
+async function showOnboarding(statusData) {
+  if (statusData?.onboarding_completed) return;
+  const info = statusData?.provider_info || {};
+  const builtinEl = $("#onboarding-builtin-status");
+  if (info.bundled_available) {
+    builtinEl.textContent = "Built-in offline AI is ready — no install needed.";
+  } else {
+    builtinEl.textContent = "Built-in AI ships with the Windows app. Demo mode works everywhere else.";
+  }
+  const ollamaEl = $("#onboarding-ollama-status");
+  if (info.ollama_available && info.ollama_model_ready) {
+    ollamaEl.textContent = "Ollama detected — local AI is ready!";
+  } else if (info.ollama_available) {
+    ollamaEl.textContent = "Ollama is running. Pull a model (e.g. ollama pull llama3.2) for full AI.";
+  } else {
+    ollamaEl.textContent = "Install Ollama from ollama.com for advanced local models.";
+  }
+  $("#onboarding-dialog").showModal();
+}
+
+$("#onboarding-done")?.addEventListener("click", async () => {
+  await fetch("/api/settings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider: state.savedProvider || "auto", onboarding_completed: true }),
+  });
+  $("#onboarding-dialog").close();
+  setMode("project");
+  renderTemplates();
+});
+
+document.querySelectorAll(".settings-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".settings-tab").forEach((t) => t.classList.remove("active"));
+    document.querySelectorAll(".settings-panel").forEach((p) => p.classList.remove("active"));
+    tab.classList.add("active");
+    document.querySelector(`.settings-panel[data-panel="${tab.dataset.tab}"]`)?.classList.add("active");
+  });
+});
+
 $("#settings-btn")?.addEventListener("click", async () => {
-  await loadAppStatus();
+  const s = await loadAppSettings();
+  fillSettingsForm(s);
   await loadBundledSettings();
+  await checkUpdates(true);
   settingsDialog.showModal();
 });
 $("#cancel-settings")?.addEventListener("click", () => settingsDialog.close());
 
-settingsForm?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const provider = providerSelect.value;
-  await fetch("/api/settings/provider", {
+$("#test-provider-btn")?.addEventListener("click", async () => {
+  const payload = collectSettingsPayload();
+  const res = await fetch("/api/settings/test", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ provider }),
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  const el = $("#test-result");
+  el.hidden = false;
+  el.className = `test-result ${data.ok ? "ok" : "err"}`;
+  el.textContent = data.message;
+});
+
+function collectSettingsPayload() {
+  return {
+    provider: providerSelect.value,
+    ollama_base_url: $("#ollama-url").value,
+    ollama_model: $("#ollama-model").value,
+    openai_base_url: $("#openai-url").value,
+    openai_api_key: $("#openai-key").value,
+    openai_model: $("#openai-model").value,
+    allow_shell_commands: $("#allow-shell").checked,
+  };
+}
+
+settingsForm?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const payload = collectSettingsPayload();
+  await fetch("/api/settings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
   await fetch("/api/bundled/settings", {
     method: "POST",
@@ -747,6 +1145,25 @@ settingsForm?.addEventListener("submit", async (e) => {
   });
   settingsDialog.close();
   await loadAppStatus();
+});
+
+$("#check-updates-btn")?.addEventListener("click", () => checkUpdates(true));
+
+$("#view-logs-btn")?.addEventListener("click", async () => {
+  const res = await fetch("/api/logs");
+  const data = await res.json();
+  const pre = $("#logs-preview");
+  pre.hidden = false;
+  const parts = [];
+  if (data.log_dir) parts.push(`Log directory: ${data.log_dir}\n`);
+  for (const [name, text] of Object.entries(data.logs || {})) {
+    parts.push(`--- ${name} ---\n${text}`);
+  }
+  pre.textContent = parts.join("\n\n") || "No logs yet.";
+});
+
+$("#clear-chat-btn")?.addEventListener("click", () => {
+  if (confirm("Clear chat history for this mode?")) clearChatHistory();
 });
 
 // --- Theme toggle ---
@@ -786,11 +1203,35 @@ input.addEventListener("keydown", (e) => {
   }
 });
 
-setupVoiceInput();
-initThemeToggle();
-loadAppStatus();
-loadWorkspaces().then(() => {
-  loadPersonas();
-  loadProjects();
-  loadDocs();
-});
+// --- Boot ---
+
+async function boot() {
+  setupVoiceInput();
+  initThemeToggle();
+  setSplashStatus("Connecting to Persona…");
+
+  try {
+    const statusData = await loadAppStatus();
+    setSplashStatus("Loading workspaces…");
+    await loadWorkspaces();
+    setSplashStatus("Loading agents…");
+    await loadPersonas();
+    await loadProjects();
+    await loadDocs();
+    await loadTemplates();
+    renderTemplates();
+    await loadChatHistory();
+    const settingsData = await loadAppSettings();
+    fillSettingsForm(settingsData);
+    checkUpdates(false);
+    showOnboarding(statusData);
+  } catch (err) {
+    setSplashStatus("Could not connect. Retrying…");
+    setTimeout(boot, 1500);
+    return;
+  }
+
+  hideSplash();
+}
+
+boot();

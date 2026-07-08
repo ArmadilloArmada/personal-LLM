@@ -1,4 +1,4 @@
-"""Configuration loaded from environment variables."""
+"""Configuration loaded from environment variables and ~/.persona/config.json."""
 
 import json
 from pathlib import Path
@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     max_tool_rounds: int = 15
+    allow_shell_commands: bool = False
+    onboarding_completed: bool = False
     workspace: Path = Field(default_factory=lambda: Path.cwd())
     active_workspace: str = "default"
     web_host: str = "127.0.0.1"
@@ -75,6 +77,22 @@ class Settings(BaseSettings):
         path.mkdir(parents=True, exist_ok=True)
         return path
 
+    @property
+    def chat_history_file(self) -> Path:
+        return self.data_dir / "chat_history.json"
+
+    @property
+    def config_file(self) -> Path:
+        return self.data_dir / "config.json"
+
 
 def get_settings() -> Settings:
-    return Settings(**_load_preferences())
+    settings = Settings()
+    from persona.user_config import apply_user_config
+
+    apply_user_config(settings)
+    prefs = _load_preferences()
+    for key in ("bundled_model_tier", "bundled_threads", "bundled_gpu_layers", "bundled_port"):
+        if key in prefs:
+            setattr(settings, key, prefs[key])
+    return settings

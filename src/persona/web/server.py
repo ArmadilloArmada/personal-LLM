@@ -7,18 +7,30 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import httpx
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from persona.chat_history import ChatHistoryStore
 from persona.config import Settings, get_settings
 from persona.crew import Crew
 from persona.llm import provider_status
+from persona.memory import MemoryStore
 from persona.personas import get_persona
 from persona.projects import BOARD_COLUMNS
-from persona.providers import resolve_provider_mode
+from persona.providers import (
+    ollama_available,
+    ollama_installed_models,
+    ollama_ready,
+    resolve_provider_mode,
+)
 from persona.rag import DocumentStore
+from persona.user_config import get_user_config, save_user_config
+
+APP_VERSION = "1.0.0"
+GITHUB_REPO = "ArmadilloArmada/personal-LLM"
 
 def _static_dir() -> Path:
     if getattr(sys, "frozen", False):
@@ -75,6 +87,29 @@ class ModelTierRequest(BaseModel):
     tier: str = Field(pattern="^(fast|balanced|quality)$")
 
 
+class SettingsRequest(BaseModel):
+    provider: str = Field(default="auto", pattern="^(auto|demo|bundled|ollama|openai)$")
+    ollama_base_url: str | None = None
+    ollama_model: str | None = None
+    openai_base_url: str | None = None
+    openai_api_key: str | None = None
+    openai_model: str | None = None
+    allow_shell_commands: bool | None = None
+    onboarding_completed: bool | None = None
+
+
+class MemoryRequest(BaseModel):
+    key: str
+    value: str
+
+
+class ChatHistoryRequest(BaseModel):
+    workspace_id: str = "default"
+    mode: str = "solo"
+    persona_id: str | None = None
+    messages: list[dict[str, Any]] | None = None
+
+
 class WorkspaceCreateRequest(BaseModel):
     name: str
     company: str = ""
@@ -98,12 +133,57 @@ def _sse_event(event_type: str, data: dict[str, Any]) -> str:
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     crew = Crew(settings)
+    memory = MemoryStore(settings.memory_file)
+    history = ChatHistoryStore(settings.chat_history_file)
 
     def _apply_workspace(workspace_id: str | None) -> None:
         if workspace_id:
             crew.switch_workspace(workspace_id)
 
-    app = FastAPI(title="Persona", description="AI agent workspace", version="0.8.0")
+    def _apply_settings(req: SettingsRequest) -> dict[str, Any]:
+        settings.provider = req.provider
+        if req.ollama_base_url is not None:
+            settings.ollama_base_url = req.ollama_base_url
+        if req.ollama_model is not None:
+            settings.ollama_model = req.ollama_model
+        if req.openai_base_url is not None:
+            settings.openai_base_url = req.openai_base_url
+        if req.openai_model is not None:
+            settings.openai_model = req.openai_model
+        if req.openai_api_key is not None and req.openai_api_key.strip():
+            settings.openai_api_key = req.openai_api_key.strip()
+        if req.allow_shell_commands is not None:
+            settings.allow_shell_commands = req.allow_shell_commands
+        if req.onboarding_completed is not None:
+            settings.onboarding_completed = req.onboarding_completed
+        save_user_config(settings)
+        crew.refresh_provider()
+        from persona.bundled import bundled_ready, start_bundled_server, stop_bundled_server
+
+        active = resolve_provider_mode(settings)
+        if active == "bundled" and bundled_ready(settings):
+            start_bundled_server(settings, force=True)
+        elif active != "bundled":
+            stop_bundled_server()
+        return _settings_payload()
+
+    def _settings_payload() -> dict[str, Any]:
+        pinfo = provider_status(settings)
+        return {
+            "provider": settings.provider,
+            "provider_info": pinfo,
+            "ollama_base_url": settings.ollama_base_url,
+            "ollama_model": settings.ollama_model,
+            "openai_base_url": settings.openai_base_url,
+            "openai_model": settings.openai_model,
+            "openai_api_key_set": bool(settings.openai_api_key),
+            "allow_shell_commands": settings.allow_shell_commands,
+            "onboarding_completed": settings.onboarding_completed,
+            "ollama_models": ollama_installed_models(settings) if ollama_available(settings) else [],
+            "version": APP_VERSION,
+        }
+
+    app = FastAPI(title="Persona", description="AI agent workspace", version=APP_VERSION)
 
     @app.get("/api/personas")
     def list_personas():
@@ -199,22 +279,148 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "team_workspace": ws.to_dict() if ws else None,
             "document_count": len(crew.list_documents()),
             "standalone": True,
+            "version": APP_VERSION,
+            "onboarding_completed": settings.onboarding_completed,
+            "allow_shell_commands": settings.allow_shell_commands,
         }
+
+    @app.get("/api/settings")
+    def get_app_settings():
+        return _settings_payload()
+
+    @app.post("/api/settings")
+    def update_settings(req: SettingsRequest):
+        return _apply_settings(req)
 
     @app.post("/api/settings/provider")
     def set_provider(req: ProviderRequest):
-        import os
+        return _apply_settings(SettingsRequest(provider=req.provider))
 
-        from persona.bundled import bundled_ready, start_bundled_server, stop_bundled_server
+    @app.post("/api/settings/test")
+    def test_provider(req: SettingsRequest = SettingsRequest()):
+        from persona.bundled import bundled_ready as is_bundled_ready
 
-        os.environ["PERSONA_PROVIDER"] = req.provider
-        settings.provider = req.provider
-        if req.provider == "bundled" and bundled_ready(settings):
-            start_bundled_server(settings, force=True)
-        elif req.provider != "bundled":
-            stop_bundled_server()
-        pinfo = provider_status(settings)
-        return {"provider_info": pinfo}
+        probe = Settings(**settings.model_dump())
+        probe.provider = req.provider
+        if req.ollama_base_url:
+            probe.ollama_base_url = req.ollama_base_url
+        if req.ollama_model:
+            probe.ollama_model = req.ollama_model
+        if req.openai_base_url:
+            probe.openai_base_url = req.openai_base_url
+        if req.openai_model:
+            probe.openai_model = req.openai_model
+        if req.openai_api_key and req.openai_api_key.strip():
+            probe.openai_api_key = req.openai_api_key.strip()
+
+        mode = req.provider
+        if mode == "bundled" or (mode == "auto" and is_bundled_ready(probe)):
+            if is_bundled_ready(probe):
+                return {"ok": True, "message": "Built-in AI is ready.", "provider": "bundled"}
+            return {"ok": False, "message": "Built-in AI binaries or models are not available."}
+
+        if mode == "ollama" or (mode == "auto" and ollama_ready(probe)):
+            if not ollama_available(probe):
+                return {"ok": False, "message": "Ollama is not running at " + probe.ollama_base_url}
+            if not ollama_ready(probe):
+                return {
+                    "ok": False,
+                    "message": f"Model {probe.ollama_model} is not installed. Run: ollama pull {probe.ollama_model.split(':')[0]}",
+                }
+            return {"ok": True, "message": "Ollama is ready.", "provider": "ollama"}
+
+        api_key = probe.openai_api_key
+        if mode == "openai" or (mode == "auto" and api_key):
+            if not api_key:
+                return {"ok": False, "message": "API key is required for cloud AI."}
+            try:
+                headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+                base = probe.openai_base_url.rstrip("/")
+                model = probe.openai_model
+                r = httpx.post(
+                    f"{base}/chat/completions",
+                    headers=headers,
+                    json={"model": model, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 5},
+                    timeout=15.0,
+                )
+                if r.status_code == 401:
+                    return {"ok": False, "message": "Invalid API key."}
+                if r.status_code >= 400:
+                    return {"ok": False, "message": f"API error: {r.status_code}"}
+                return {"ok": True, "message": "Cloud API connected.", "provider": "openai"}
+            except Exception as exc:
+                return {"ok": False, "message": str(exc)}
+
+        return {"ok": True, "message": "Demo mode works without a provider.", "provider": "demo"}
+
+    @app.get("/api/updates")
+    def check_updates():
+        try:
+            r = httpx.get(
+                f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest",
+                headers={"Accept": "application/vnd.github+json"},
+                timeout=8.0,
+            )
+            if r.status_code != 200:
+                return {"available": False, "current": APP_VERSION}
+            data = r.json()
+            latest = (data.get("tag_name") or "").lstrip("v")
+            current = APP_VERSION
+            return {
+                "available": latest and latest != current,
+                "current": current,
+                "latest": latest,
+                "url": data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases/latest"),
+                "name": data.get("name", ""),
+            }
+        except Exception:
+            return {"available": False, "current": APP_VERSION}
+
+    @app.get("/api/memory")
+    def list_memory():
+        return {"entries": memory.entries()}
+
+    @app.post("/api/memory")
+    def add_memory(req: MemoryRequest):
+        memory.add(req.key, req.value)
+        return {"entries": memory.entries()}
+
+    @app.delete("/api/memory/{key}")
+    def delete_memory(key: str):
+        memory.remove(key)
+        return {"entries": memory.entries()}
+
+    @app.get("/api/chat/history")
+    def get_chat_history(workspace_id: str = "default", mode: str = "solo", persona_id: str | None = None):
+        return {"messages": history.get(workspace_id, mode, persona_id)}
+
+    @app.post("/api/chat/history")
+    def save_chat_history(req: ChatHistoryRequest):
+        if req.messages is not None:
+            history.save(req.workspace_id, req.mode, req.messages, req.persona_id)
+        return {"messages": history.get(req.workspace_id, req.mode, req.persona_id)}
+
+    @app.delete("/api/chat/history")
+    def clear_chat_history(workspace_id: str = "default", mode: str = "solo", persona_id: str | None = None):
+        history.clear(workspace_id, mode, persona_id)
+        return {"cleared": True}
+
+    @app.get("/api/logs")
+    def get_logs():
+        log_dir = settings.data_dir
+        result: dict[str, str] = {}
+        for name in ("error.log", "startup.log"):
+            path = log_dir / name
+            if path.exists():
+                text = path.read_text(encoding="utf-8", errors="replace")
+                result[name] = text[-8000:] if len(text) > 8000 else text
+        return {"logs": result, "log_dir": str(log_dir)}
+
+    @app.get("/api/templates")
+    def list_templates():
+        from persona.templates import project_templates
+
+        return {"templates": project_templates()}
 
     @app.get("/api/bundled/status")
     def bundled_info():
