@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -29,7 +29,7 @@ from persona.providers import (
 from persona.rag import DocumentStore
 from persona.user_config import get_user_config, save_user_config
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 GITHUB_REPO = "ArmadilloArmada/personal-LLM"
 
 def _static_dir() -> Path:
@@ -126,6 +126,12 @@ class TaskCreateRequest(BaseModel):
     column: str = "backlog"
 
 
+class PackExportRequest(BaseModel):
+    persona_ids: list[str] | None = None
+    name: str = "My Persona Pack"
+    description: str = ""
+
+
 def _sse_event(event_type: str, data: dict[str, Any]) -> str:
     return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
@@ -200,6 +206,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="Custom persona not found or is built-in")
         crew.avatars.delete(persona_id)
         return {"deleted": persona_id}
+
+    @app.post("/api/personas/pack/export")
+    def export_persona_pack(req: PackExportRequest):
+        try:
+            filename, yaml_content = crew.export_persona_pack(
+                req.persona_ids, name=req.name, description=req.description
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return Response(
+            content=yaml_content,
+            media_type="application/x-yaml",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    @app.post("/api/personas/pack/import")
+    async def import_persona_pack(file: UploadFile = File(...)):
+        suffix = Path(file.filename or "").suffix.lower()
+        if suffix not in (".yaml", ".yml"):
+            raise HTTPException(status_code=400, detail="Pack must be a .yaml or .yml file")
+        content = (await file.read()).decode("utf-8", errors="replace")
+        try:
+            imported = crew.import_persona_pack(content)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"imported": imported, "count": len(imported)}
 
     @app.post("/api/personas/{persona_id}/avatar")
     async def upload_avatar(persona_id: str, file: UploadFile = File(...)):

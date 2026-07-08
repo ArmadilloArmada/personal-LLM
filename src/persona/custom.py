@@ -127,6 +127,73 @@ def delete_custom_persona(persona_id: str, directory: Path) -> bool:
     return False
 
 
+def persona_to_export_entry(persona: Persona) -> dict[str, Any]:
+    return {
+        "id": persona.id,
+        "name": persona.name,
+        "role": persona.role,
+        "tagline": persona.tagline,
+        "color": persona.color,
+        "accent": persona.accent,
+        "emoji": persona.emoji,
+        "shape": persona.shape,
+        "personality": persona.personality,
+        "specialties": persona.specialties,
+        "tools": persona.tools,
+        "company": persona.company,
+        "instructions": persona.system_prompt.replace(BASE_GUIDELINES, "").strip(),
+    }
+
+
+def export_persona_pack_yaml(
+    persona_ids: list[str],
+    *,
+    name: str = "Persona Pack",
+    description: str = "",
+) -> str:
+    """Serialize custom personas into a shareable YAML pack."""
+    entries: list[dict[str, Any]] = []
+    for pid in persona_ids:
+        persona = PERSONAS.get(pid)
+        if not persona or pid in BUILTIN_IDS:
+            continue
+        entries.append(persona_to_export_entry(persona))
+    if not entries:
+        raise ValueError("No exportable agents found. Built-in agents cannot be exported.")
+    payload: dict[str, Any] = {
+        "name": name,
+        "description": description,
+        "version": 1,
+        "personas": entries,
+    }
+    return yaml.dump(payload, sort_keys=False, allow_unicode=True)
+
+
+def import_persona_pack_yaml(content: str, directory: Path) -> list[Persona]:
+    """Import personas from a YAML pack into the user's persona directory."""
+    data = yaml.safe_load(content)
+    if not data:
+        raise ValueError("Pack file is empty or invalid.")
+    entries = data if isinstance(data, list) else data.get("personas", [data])
+    imported: list[Persona] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        persona = persona_from_dict(entry)
+        if persona.id in BUILTIN_IDS:
+            continue
+        save_custom_persona(persona, directory)
+        imported.append(persona)
+    if not imported:
+        raise ValueError("No valid agents found in pack.")
+    return imported
+
+
+def pack_filename(name: str) -> str:
+    slug = _slugify(name) or "persona-pack"
+    return f"{slug}.yaml"
+
+
 def merge_persona_registry(custom: dict[str, Persona]) -> None:
     for pid in list(PERSONAS.keys()):
         if PERSONAS[pid].is_custom:

@@ -16,7 +16,7 @@ const state = {
   streamRawText: "",
   chatHistory: [],
   savedProvider: "auto",
-  appVersion: "1.0.0",
+  appVersion: "1.0.1",
 };
 
 const COLUMN_LABELS = {
@@ -689,6 +689,55 @@ async function loadProjects() {
     projectList.appendChild(li);
   });
 }
+
+// --- Persona packs ---
+
+$("#export-pack-btn")?.addEventListener("click", async () => {
+  const custom = state.personas.filter((p) => p.is_custom);
+  if (!custom.length) {
+    alert("No custom agents to export. Create an agent or import a pack first.");
+    return;
+  }
+  const name = prompt("Pack name:", "My Persona Pack") || "My Persona Pack";
+  const res = await fetch("/api/personas/pack/export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      persona_ids: custom.map((p) => p.id),
+      name,
+      description: `Exported from Persona on ${new Date().toLocaleDateString()}`,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(err.detail || "Export failed");
+    return;
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "persona-pack"}.yaml`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+$("#pack-import")?.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch("/api/personas/pack/import", { method: "POST", body: form });
+  e.target.value = "";
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(err.detail || "Import failed");
+    return;
+  }
+  const data = await res.json();
+  await loadPersonas();
+  alert(`Imported ${data.count} agent${data.count === 1 ? "" : "s"} from pack.`);
+});
 
 // --- Custom persona dialog ---
 

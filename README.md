@@ -2,7 +2,9 @@
 
 **Persona** is a standalone Windows AI agent app — download, unzip, double-click. **Built-in AI included** — no Ollama, no Python, no API keys required.
 
-## Download (Windows)
+## Download
+
+### Windows (recommended — built-in offline AI)
 
 **https://github.com/ArmadilloArmada/personal-LLM/releases/latest/download/Persona-Windows-portable.zip**
 
@@ -10,7 +12,13 @@
 2. Double-click **`Persona.exe`**
 3. Pick a project template — Captain and the crew plan it with you
 
-Optional: run **`Create Desktop Shortcut.bat`** to add Persona to your desktop.
+### macOS
+
+**https://github.com/ArmadilloArmada/personal-LLM/releases/latest/download/Persona-macOS-portable.zip**
+
+1. Unzip and double-click **`Persona.command`**
+2. First launch installs dependencies (needs internet once)
+3. Connect Ollama or a cloud API in Settings, or use demo mode
 
 See [DOWNLOAD.md](DOWNLOAD.md) if it won't open.
 
@@ -21,7 +29,7 @@ See [DOWNLOAD.md](DOWNLOAD.md) if it won't open.
 - **Model manager** — Fast / Balanced / Quality tiers in Settings
 - **Modern dark UI** with light mode toggle, chat history, and onboarding
 - **5 built-in agents** — Byte, Sunny, Nova, Sketch, Captain
-- **3 persona packs** — Startup crew, Writer's room, Study squad
+- **Shareable agent packs** — export/import YAML teams; 3 built-in packs (Startup, Writer's room, Study squad)
 - **Solo, Group, Project, Board** modes
 - **Team workspaces**, **knowledge base**, **custom agents**
 

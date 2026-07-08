@@ -371,6 +371,17 @@ body {
 /* Projects & docs */
 
 .projects-panel,
+.packs-panel {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.packs-panel .text-btn {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
 .docs-panel {
   margin-top: 1.25rem;
   padding-top: 1rem;
