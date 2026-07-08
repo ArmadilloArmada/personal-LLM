@@ -402,6 +402,10 @@
     renderAgents(null);
     renderTemplates();
     setProgress();
+
+    if (new URLSearchParams(location.search).has("play")) {
+      timers.push(setTimeout(() => $("#play-btn")?.click(), 400));
+    }
   </script>
 </body>
 </html>

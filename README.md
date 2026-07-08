@@ -22,7 +22,21 @@
 
 See [DOWNLOAD.md](DOWNLOAD.md) if it won't open.
 
-**[▶ Try the interactive demo](demo/index.html)** — play in your browser, no install.
+**[▶ Try the interactive demo](demo/index.html)** — play in your browser (`?play=1` auto-starts).
+
+## Agent pack gallery
+
+Import curated teams from the app sidebar, or browse [`personas/gallery/`](personas/gallery/):
+
+| Pack | Agents |
+|------|--------|
+| 🎲 Dungeon Master's Table | DM, Lorekeeper |
+| 💪 Fitness Crew | Coach, Fuel |
+| 🛠️ Indie Hacker | Ship, Launch |
+| 🏫 Homeschool Helpers | Atlas, Echo |
+| 🎬 Content Studio | Reel, Frame |
+
+Plus built-in packs: Startup crew, Writer's room, Study squad.
 
 ## What you get
 
