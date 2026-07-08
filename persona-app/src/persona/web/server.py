@@ -28,7 +28,7 @@ from persona.rag import DocumentStore
 from persona.web.brain_routes import augment_message_with_rag, capture_turn, register_brain_routes
 from persona.user_config import get_user_config, save_user_config
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 GITHUB_REPO = "ArmadilloArmada/Persona"
 RELEASE_ASSET = "Persona-Setup.exe"
 RELEASE_ASSET_PORTABLE = "Persona-Windows-portable.zip"
