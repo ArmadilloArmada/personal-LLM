@@ -37,6 +37,24 @@ class OllamaProvider(LLMProvider):
         self.settings = settings
         self.client = httpx.Client(base_url=settings.ollama_base_url, timeout=300.0)
 
+    def _prepare_messages(self, messages: list[Message]) -> list[dict[str, Any]]:
+        """Ollama expects tool arguments as objects in chat history, not JSON strings."""
+        prepared: list[dict[str, Any]] = []
+        for message in messages:
+            data = message.to_dict()
+            if message.tool_calls and data.get("content") is None:
+                data["content"] = ""
+            for tool_call in data.get("tool_calls") or []:
+                fn = tool_call.get("function", {})
+                args = fn.get("arguments")
+                if isinstance(args, str):
+                    try:
+                        fn["arguments"] = json.loads(args) if args else {}
+                    except json.JSONDecodeError:
+                        fn["arguments"] = {}
+            prepared.append(data)
+        return prepared
+
     def chat(
         self,
         messages: list[Message],
@@ -44,7 +62,7 @@ class OllamaProvider(LLMProvider):
     ) -> LLMResponse:
         payload: dict[str, Any] = {
             "model": self.settings.ollama_model,
-            "messages": [m.to_dict() for m in messages],
+            "messages": self._prepare_messages(messages),
             "stream": False,
         }
         if tools:
@@ -59,7 +77,10 @@ class OllamaProvider(LLMProvider):
                     f"Ollama model '{self.settings.ollama_model}' is not installed. "
                     f"Run: ollama pull {self.settings.ollama_model.split(':')[0]}"
                 ) from exc
-            raise
+            detail = exc.response.text.strip()
+            raise RuntimeError(
+                f"Ollama error ({exc.response.status_code}): {detail or exc}"
+            ) from exc
         data = response.json()
         return self._parse_response(data)
 
@@ -74,7 +95,7 @@ class OllamaProvider(LLMProvider):
 
         payload: dict[str, Any] = {
             "model": self.settings.ollama_model,
-            "messages": [m.to_dict() for m in messages],
+            "messages": self._prepare_messages(messages),
             "stream": True,
         }
         with self.client.stream("POST", "/api/chat", json=payload) as response:
