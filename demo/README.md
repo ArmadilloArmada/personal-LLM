@@ -15,7 +15,18 @@
 
 ### Watch the demo video (~36 seconds)
 
-**[demo/Persona-demo.mp4](Persona-demo.mp4)** — auto-recorded walkthrough (templates → Project → board → download)
+**[demo/Persona-demo.mp4](Persona-demo.mp4)** (~685 KB) — auto-recorded walkthrough (templates → Project → board → download)
+
+Direct download: https://github.com/ArmadilloArmada/personal-LLM/raw/main/demo/Persona-demo.mp4
+
+### Download the app
+
+| Platform | Size | Offline AI |
+|----------|------|------------|
+| [Windows zip](https://github.com/ArmadilloArmada/personal-LLM/releases/latest/download/Persona-Windows-portable.zip) | ~1.3 GB | Built-in |
+| [macOS zip](https://github.com/ArmadilloArmada/personal-LLM/releases/latest/download/Persona-macOS-portable.zip) | ~85 KB | Use Ollama / cloud |
+
+See [DOWNLOAD.md](../DOWNLOAD.md) if you're unsure which file to get.
 
 ### Online (after GitHub Pages deploy)
 

@@ -30,7 +30,7 @@ Use this script to record a product demo (Loom, OBS, or screen capture) of the *
 | 0:45 | Switch to **Board** tab | "Tasks land on a kanban board automatically." |
 | 0:55 | Drag a task to **In Progress** | "Track progress like any project tool." |
 | 1:05 | Open **Agents** sidebar → show packs | "Import agent packs — startup crew, writers, tutors — or export your own." |
-| 1:15 | Settings → Built-in AI | "On Windows, built-in offline AI ships in the app. Or connect Ollama / cloud." |
+| 1:15 | Settings → Built-in AI | "On Windows, built-in offline AI ships in the ~1.3 GB zip. macOS uses Ollama or cloud." |
 | 1:25 | End on logo / template screen | "Download free at GitHub — link in description." |
 
 ## B-roll shots (optional)
@@ -43,11 +43,11 @@ Use this script to record a product demo (Loom, OBS, or screen capture) of the *
 ## Release checklist
 
 ```bash
-git tag v1.0.1
-git push origin v1.0.1
+git tag v1.0.3
+git push origin v1.0.3
 ```
 
 CI builds and publishes:
 
-- `Persona-Windows-portable.zip` (built-in AI)
-- `Persona-macOS-portable.zip` (Ollama / demo / cloud)
+- `Persona-Windows-portable.zip` (~1.3 GB — built-in llama.cpp + Fast + Balanced models)
+- `Persona-macOS-portable.zip` (~85 KB — launcher only; Ollama / demo / cloud)
