@@ -54,18 +54,23 @@ MODEL_TIERS: dict[str, dict[str, Any]] = {
     },
     "quality": {
         "label": "Quality",
-        "description": "Best answers — download once (~2 GB)",
+        "description": "Best answers + file tools — download once (~2 GB)",
         "filename": "quality.gguf",
         "bundled": False,
         "download_url": (
-            "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/"
-            "Llama-3.2-3B-Instruct-Q4_K_M.gguf"
+            "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/"
+            "qwen2.5-3b-instruct-q4_k_m.gguf"
         ),
         "ram_gb_min": 8,
         "context": 8192,
-        "supports_tools": False,
+        "supports_tools": True,
     },
 }
+
+
+def bundled_tier_supports_tools(tier: str) -> bool:
+    spec = MODEL_TIERS.get(tier)
+    return bool(spec and spec.get("supports_tools"))
 
 _server_proc: subprocess.Popen[Any] | None = None
 _server_lock = threading.Lock()
@@ -377,6 +382,7 @@ def bundled_status(settings: Settings) -> dict[str, Any]:
         "threads": resolve_threads(settings),
         "gpu_layers": resolve_gpu_layers(settings),
         "port": settings.bundled_port,
+        "tools_supported": bundled_tier_supports_tools(tier),
         "models": list_model_tiers(settings),
         "download": dict(_download_state),
     }

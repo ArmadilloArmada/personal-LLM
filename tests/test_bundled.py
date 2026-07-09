@@ -11,6 +11,7 @@ from persona.bundled import (
     MODEL_TIERS,
     bundled_paths,
     bundled_ready,
+    bundled_tier_supports_tools,
     list_model_tiers,
     model_path_for_tier,
     recommended_model_tier,
@@ -102,3 +103,8 @@ def test_recommended_model_tier_with_ram(monkeypatch):
     monkeypatch.setattr("persona.bundled.system_ram_gb", lambda: 16.0)
     monkeypatch.setattr("persona.bundled.model_path_for_tier", lambda t: Path("x") if t == "quality" else None)
     assert recommended_model_tier() == "quality"
+
+
+def test_bundled_tier_supports_tools():
+    assert bundled_tier_supports_tools("quality") is True
+    assert bundled_tier_supports_tools("balanced") is False

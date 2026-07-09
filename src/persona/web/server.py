@@ -29,7 +29,7 @@ from persona.providers import (
 from persona.rag import DocumentStore
 from persona.user_config import get_user_config, save_user_config
 
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.0.3"
 GITHUB_REPO = "ArmadilloArmada/personal-LLM"
 
 def _static_dir() -> Path:

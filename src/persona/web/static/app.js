@@ -952,9 +952,10 @@ function renderModelTiers(bundled) {
     card.className = `model-tier-card${tier.active ? " active" : ""}`;
     const size = tier.size_mb ? `${tier.size_mb} MB` : tier.bundled ? "bundled" : "download";
     const ramNote = tier.ram_ok ? "" : " — needs more RAM";
+    const toolsNote = tier.supports_tools ? " · file tools" : "";
     card.innerHTML = `
       <h5>${tier.label}${tier.active ? " (active)" : ""}</h5>
-      <p>${tier.description} · ${size}${ramNote}</p>
+      <p>${tier.description} · ${size}${toolsNote}${ramNote}</p>
       <div class="model-tier-actions"></div>
     `;
     const actions = card.querySelector(".model-tier-actions");
@@ -1062,12 +1063,19 @@ async function loadAppStatus() {
   state.appVersion = data.version || state.appVersion;
 
   statusBanner.hidden = false;
-  if (mode === "bundled") {
-    statusBanner.className = "status-banner live";
+  if (mode === "bundled" && !info.bundled_tools_supported) {
+    statusBanner.className = "status-banner demo";
     const tier = (bundled.models || []).find((m) => m.active);
     statusBanner.innerHTML =
+      `<strong>Built-in AI</strong> — offline chat on <code>${tier?.label || bundled.active_tier || "balanced"}</code>. ` +
+      "Download the <strong>Quality</strong> model in Settings for file & memory tools.";
+  } else if (mode === "bundled") {
+    statusBanner.className = "status-banner live";
+    const tier = (bundled.models || []).find((m) => m.active);
+    const toolsNote = info.bundled_tools_supported ? " File & memory tools enabled." : "";
+    statusBanner.innerHTML =
       `<strong>Built-in AI</strong> — offline, no Ollama needed. ` +
-      `Model: <code>${tier?.label || bundled.active_tier || "balanced"}</code>`;
+      `Model: <code>${tier?.label || bundled.active_tier || "balanced"}</code>.${toolsNote}`;
   } else if (mode === "demo") {
     statusBanner.className = "status-banner demo";
     statusBanner.innerHTML =
