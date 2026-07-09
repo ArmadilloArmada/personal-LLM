@@ -5,10 +5,10 @@ Persona for Windows (standalone)
 2. Double-click Persona.exe
 3. Built-in AI loads automatically — first start may take ~30 seconds.
 
-WHAT'S INCLUDED
+WHAT'S INCLUDED (~1.3 GB total)
 - Built-in offline AI (no Ollama install needed)
-- Fast + Balanced models bundled
-- Quality model (3B) downloadable from Settings
+- llama-server + Fast (~350 MB) + Balanced (~700 MB) models bundled
+- Quality model (Qwen2.5 3B, ~2 GB) — download from Settings for file & memory tools
 
 OPTIONAL:
 - Run "Create Desktop Shortcut.bat" to pin Persona to your desktop.

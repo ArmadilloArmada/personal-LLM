@@ -31,12 +31,17 @@ cat > "$DEST/README-macOS.txt" << 'EOF'
 Persona for macOS
 =================
 
+IMPORTANT: This zip is small (~85 KB) and does NOT include built-in offline AI.
+Bundled llama.cpp + models are Windows-only today.
+
 1. Unzip this folder anywhere
 2. Double-click Persona.command
 3. If macOS blocks it: right-click → Open → Open
 
 First launch installs dependencies into .venv (needs internet once).
-Uses demo mode, Ollama, or a cloud API key from Settings.
+Then use Demo mode, Ollama, or a cloud API key from Settings.
+
+For local AI on Mac: install Ollama (https://ollama.com) and pull a model.
 
 Data is stored in ~/.persona/
 EOF
