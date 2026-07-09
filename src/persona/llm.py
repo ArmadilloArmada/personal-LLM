@@ -272,7 +272,12 @@ class BundledProvider(LLMProvider):
     """Local llama.cpp server shipped inside Persona — no Ollama install required."""
 
     def __init__(self, settings: Settings):
-        from persona.bundled import MODEL_TIERS, bundled_server_url, resolve_active_tier
+        from persona.bundled import (
+            MODEL_TIERS,
+            bundled_server_url,
+            bundled_tier_supports_tools,
+            resolve_active_tier,
+        )
 
         self.settings = settings
         tier = resolve_active_tier(settings)
@@ -286,20 +291,47 @@ class BundledProvider(LLMProvider):
         )
         self._inner = OpenAIProvider(inner_settings)
         self._tier = tier
+        self._tools_supported: bool | None = (
+            True if bundled_tier_supports_tools(tier) else False
+        )
+
+    def _should_send_tools(self, tools: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
+        if not tools:
+            return None
+        if self._tools_supported is False:
+            return None
+        if self._tools_supported is True:
+            return tools
+        from persona.bundled import bundled_tier_supports_tools
+
+        if bundled_tier_supports_tools(self._tier):
+            return tools
+        self._tools_supported = False
+        return None
 
     def chat(
         self,
         messages: list[Message],
         tools: list[dict[str, Any]] | None = None,
     ) -> LLMResponse:
-        return self._inner.chat(messages, tools=tools)
+        send_tools = self._should_send_tools(tools)
+        try:
+            return self._inner.chat(messages, tools=send_tools)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 400 and send_tools:
+                self._tools_supported = False
+                return self._inner.chat(messages, tools=None)
+            raise
 
     def chat_stream(
         self,
         messages: list[Message],
         tools: list[dict[str, Any]] | None = None,
     ) -> Iterator[str]:
-        yield from self._inner.chat_stream(messages, tools=tools)
+        if self._should_send_tools(tools):
+            yield from super().chat_stream(messages, tools=tools)
+            return
+        yield from self._inner.chat_stream(messages, tools=None)
 
 
 def get_provider(settings: Settings) -> LLMProvider:
@@ -314,7 +346,7 @@ def get_provider(settings: Settings) -> LLMProvider:
 
 
 def provider_status(settings: Settings) -> dict:
-    from persona.bundled import bundled_status
+    from persona.bundled import bundled_status, bundled_tier_supports_tools, resolve_active_tier
     from persona.providers import bundled_ready
 
     mode = resolve_provider_mode(settings)
@@ -322,10 +354,12 @@ def provider_status(settings: Settings) -> dict:
     model_ready = ollama_model_installed(settings)
     resolved_model = resolve_ollama_model_name(settings) if ollama_up else settings.ollama_model
     bundled = bundled_status(settings)
+    active_tier = bundled.get("active_tier") or resolve_active_tier(settings)
     return {
         "active": mode,
         "bundled": bundled,
         "bundled_available": bundled_ready(settings),
+        "bundled_tools_supported": bundled_tier_supports_tools(active_tier),
         "ollama_available": ollama_up,
         "ollama_model_ready": model_ready,
         "ollama_model": settings.ollama_model,
