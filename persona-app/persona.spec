@@ -13,6 +13,10 @@ personas_dir = root / "personas"
 if personas_dir.exists():
     datas.append((str(personas_dir), "personas"))
 
+demo_dir = root / "demo"
+if demo_dir.exists():
+    datas.append((str(demo_dir), "demo"))
+
 brain_client = brain_root / "client" / "dist"
 brain_server = brain_root / "server" / "dist"
 if brain_client.exists():

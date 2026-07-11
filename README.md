@@ -19,6 +19,8 @@ Run the installer or unzip → **Persona.exe** → use **Chat | Big Brain** tabs
 
 See [persona-app/DOWNLOAD.md](persona-app/DOWNLOAD.md) and [persona-app/windows/README.txt](persona-app/windows/README.txt).
 
+**[▶ Watch the demo video](persona-app/demo/Persona-demo.mp4)** (~36s) · **[Try interactive demo](persona-app/demo/index.html)** (`?play=1` auto-starts) · Online: `https://armadilloarmada.github.io/Persona/`
+
 ## Features
 
 - **Built-in AI (Windows)** — llama.cpp + Fast & Balanced models in the zip; Quality model downloadable in Settings

@@ -21,6 +21,8 @@ Optional: **Create Desktop Shortcut.bat**
 
 See [DOWNLOAD.md](DOWNLOAD.md) for troubleshooting.
 
+**[▶ Watch the demo video](demo/Persona-demo.mp4)** (~36s) · **[Try interactive demo](demo/index.html)** (`?play=1` auto-starts)
+
 ## What you get
 
 - **Built-in AI** — offline llama.cpp with Fast & Balanced models (v1.2.0+)
