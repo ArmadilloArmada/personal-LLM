@@ -6,7 +6,7 @@ Persona is your local AI agent workspace. Big Brain is your knowledge vault and 
 ## Install (end users)
 
 1. Download **Persona-Setup.exe** (recommended) or **Persona-Windows-portable.zip** from:
-   https://github.com/ArmadilloArmada/personal-LLM/releases/latest
+   https://github.com/ArmadilloArmada/Persona/releases/latest
 2. Run the installer — or unzip the portable folder (keep all files together).
 3. Double-click **Persona.exe** (or use **Run Persona.bat**).
 4. Built-in AI loads automatically — first start may take ~30 seconds.

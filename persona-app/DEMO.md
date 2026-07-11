@@ -5,7 +5,7 @@
 **Watch:** [demo/Persona-demo.mp4](demo/Persona-demo.mp4) (~36s)  
 **Play:** open [`demo/index.html`](demo/index.html) or visit `/demo` while Persona is running (`?play=1` auto-starts).
 
-After GitHub Pages deploy: `https://armadilloarmada.github.io/personal-LLM/`
+After GitHub Pages deploy: `https://armadilloarmada.github.io/Persona/`
 
 ## Video recording script
 

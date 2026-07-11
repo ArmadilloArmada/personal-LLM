@@ -2,11 +2,11 @@
 
 ## Latest release (recommended)
 
-**Installer:** https://github.com/ArmadilloArmada/personal-LLM/releases/latest/download/Persona-Setup.exe
+**Installer:** https://github.com/ArmadilloArmada/Persona/releases/latest/download/Persona-Setup.exe
 
-**Portable zip:** https://github.com/ArmadilloArmada/personal-LLM/releases/latest/download/Persona-Windows-portable.zip
+**Portable zip:** https://github.com/ArmadilloArmada/Persona/releases/latest/download/Persona-Windows-portable.zip
 
-Release page: https://github.com/ArmadilloArmada/personal-LLM/releases/latest
+Release page: https://github.com/ArmadilloArmada/Persona/releases/latest
 
 > **Note:** v1.1.2 and earlier only include demo-mode AI (no real LLM). Use **v1.2.0+** for built-in offline AI with llama.cpp.
 

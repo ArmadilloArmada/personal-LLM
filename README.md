@@ -1,19 +1,17 @@
 # Persona + Big Brain
 
-> **Consolidated repo** — `personal-LLM` and `Persona` are merged here. Archive the duplicate [ArmadilloArmada/Persona](https://github.com/ArmadilloArmada/Persona) repo in GitHub settings when ready.
-
 Unified standalone app: **Persona** AI agents + **Big Brain** knowledge vault in one window.
 
-[![Windows build](https://github.com/ArmadilloArmada/personal-LLM/actions/workflows/build-windows.yml/badge.svg)](https://github.com/ArmadilloArmada/personal-LLM/actions/workflows/build-windows.yml)
+[![Windows build](https://github.com/ArmadilloArmada/Persona/actions/workflows/build-windows.yml/badge.svg)](https://github.com/ArmadilloArmada/Persona/actions/workflows/build-windows.yml)
 
 ## Download (Windows)
 
 | Install | Link |
 |---------|------|
-| **Installer (recommended)** | [Persona-Setup.exe](https://github.com/ArmadilloArmada/personal-LLM/releases/latest/download/Persona-Setup.exe) |
-| Portable zip | [Persona-Windows-portable.zip](https://github.com/ArmadilloArmada/personal-LLM/releases/latest/download/Persona-Windows-portable.zip) |
+| **Installer (recommended)** | [Persona-Setup.exe](https://github.com/ArmadilloArmada/Persona/releases/latest/download/Persona-Setup.exe) |
+| Portable zip | [Persona-Windows-portable.zip](https://github.com/ArmadilloArmada/Persona/releases/latest/download/Persona-Windows-portable.zip) |
 
-[All releases](https://github.com/ArmadilloArmada/personal-LLM/releases/latest)
+[All releases](https://github.com/ArmadilloArmada/Persona/releases/latest)
 
 Run the installer or unzip → **Persona.exe** → use **Chat | Big Brain** tabs. Quit from the system tray icon.
 
@@ -21,7 +19,7 @@ Run the installer or unzip → **Persona.exe** → use **Chat | Big Brain** tabs
 
 See [persona-app/DOWNLOAD.md](persona-app/DOWNLOAD.md) and [persona-app/windows/README.txt](persona-app/windows/README.txt).
 
-**[▶ Watch the demo video](persona-app/demo/Persona-demo.mp4)** (~36s) · **[Try interactive demo](persona-app/demo/index.html)** (`?play=1` auto-starts) · Online: `https://armadilloarmada.github.io/personal-LLM/`
+**[▶ Watch the demo video](persona-app/demo/Persona-demo.mp4)** (~36s) · **[Try interactive demo](persona-app/demo/index.html)** (`?play=1` auto-starts) · Online: `https://armadilloarmada.github.io/Persona/`
 
 ## Features
 
@@ -45,7 +43,7 @@ See [persona-app/DOWNLOAD.md](persona-app/DOWNLOAD.md) and [persona-app/windows/
 ## Developers
 
 ```powershell
-git clone https://github.com/ArmadilloArmada/personal-LLM.git
+git clone https://github.com/ArmadilloArmada/Persona.git
 cd Persona
 npm install
 pip install -e persona-app[desktop,dev]
@@ -90,7 +88,7 @@ Tag `v*` (e.g. `v1.1.2`) triggers the Windows CI build, installer, and GitHub Re
 - `Persona-Setup.exe` — recommended installer
 - `Persona-Windows-portable.zip` — portable folder
 
-Manual runs of the [Windows build workflow](https://github.com/ArmadilloArmada/personal-LLM/actions/workflows/build-windows.yml) upload CI artifacts only; only tagged pushes publish to [Releases](https://github.com/ArmadilloArmada/personal-LLM/releases/latest).
+Manual runs of the [Windows build workflow](https://github.com/ArmadilloArmada/Persona/actions/workflows/build-windows.yml) upload CI artifacts only; only tagged pushes publish to [Releases](https://github.com/ArmadilloArmada/Persona/releases/latest).
 
 See [.github/workflows/build-windows.yml](.github/workflows/build-windows.yml).
 

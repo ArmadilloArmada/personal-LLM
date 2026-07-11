@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Persona — one-command install & launch
-# Usage: curl -fsSL https://raw.githubusercontent.com/ArmadilloArmada/personal-LLM/main/persona-app/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/ArmadilloArmada/Persona/main/persona-app/install.sh | bash
 #
 # Windows users: use the installer instead — see persona-app/DOWNLOAD.md
 set -euo pipefail
@@ -41,7 +41,7 @@ elif [ -d "$INSTALL_DIR/.git" ] && [ -f "$INSTALL_DIR/pyproject.toml" ]; then
 else
   echo "  → Downloading Persona to $REPO_DIR"
   mkdir -p "$(dirname "$REPO_DIR")"
-  git clone --depth 1 https://github.com/ArmadilloArmada/personal-LLM.git "$REPO_DIR" 2>/dev/null || {
+  git clone --depth 1 https://github.com/ArmadilloArmada/Persona.git "$REPO_DIR" 2>/dev/null || {
     echo "  → Git clone failed; copy this repo to $REPO_DIR manually"
     exit 1
   }
