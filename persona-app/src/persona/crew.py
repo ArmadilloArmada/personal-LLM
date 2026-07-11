@@ -383,6 +383,37 @@ class Crew:
         reload_persona_registry(self.settings)
         return deleted
 
+    def export_persona_pack(
+        self,
+        persona_ids: list[str] | None = None,
+        name: str = "My Persona Pack",
+        description: str = "",
+    ) -> tuple[str, str]:
+        from persona.custom import export_persona_pack_yaml, pack_filename
+
+        ids = persona_ids or [p.id for p in PERSONAS.values() if p.is_custom]
+        yaml_content = export_persona_pack_yaml(ids, name=name, description=description)
+        return pack_filename(name), yaml_content
+
+    def import_persona_pack(self, content: str) -> list[dict]:
+        from persona.custom import import_persona_pack_yaml
+
+        imported = import_persona_pack_yaml(content, self.settings.custom_personas_dir)
+        reload_persona_registry(self.settings)
+        return [persona_to_dict(p, self.avatars) for p in imported]
+
+    def list_gallery_packs(self) -> list[dict]:
+        from persona.gallery import list_gallery_packs
+
+        return list_gallery_packs()
+
+    def import_gallery_pack(self, pack_id: str) -> list[dict]:
+        from persona.gallery import import_gallery_pack
+
+        import_gallery_pack(pack_id, self.settings.custom_personas_dir)
+        reload_persona_registry(self.settings)
+        return self.persona_catalog()
+
 
 def _chunk_text(text: str, size: int = 24) -> Iterator[str]:
     for i in range(0, len(text), size):

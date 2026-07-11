@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from persona.config import Settings
-from persona.llm import OllamaProvider
+from persona.llm import OllamaProvider, _to_ollama_messages
 from persona.models import Message, ToolCall
 
 
@@ -21,7 +21,7 @@ def test_ollama_prepare_messages_parses_tool_arguments():
         ),
         Message(role="tool", content="results", tool_call_id="call_1", name="search_docs"),
     ]
-    prepared = provider._prepare_messages(messages)
+    prepared = _to_ollama_messages(messages)
     args = prepared[1]["tool_calls"][0]["function"]["arguments"]
     assert isinstance(args, dict)
     assert args["query"] == "test"

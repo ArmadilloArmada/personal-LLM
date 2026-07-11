@@ -15,7 +15,27 @@ Unified standalone app: **Persona** AI agents + **Big Brain** knowledge vault in
 
 Run the installer or unzip → **Persona.exe** → use **Chat | Big Brain** tabs. Quit from the system tray icon.
 
+**Built-in AI** ships in the Windows zip (~1.3 GB) — offline chat with llama.cpp, no Ollama install required. Big Brain vault and Node runtime are also bundled.
+
 See [persona-app/DOWNLOAD.md](persona-app/DOWNLOAD.md) and [persona-app/windows/README.txt](persona-app/windows/README.txt).
+
+## Features
+
+- **Built-in AI (Windows)** — llama.cpp + Fast & Balanced models in the zip; Quality model downloadable in Settings
+- **Big Brain** — Obsidian-like vault, graph, workflows, automatic chat capture
+- **5 built-in agents** — Byte, Sunny, Nova, Sketch, Captain
+- **Agent packs** — curated YAML teams + export/import your own
+- **Project templates** — one-click onboarding flows
+- **Solo / Group / Project / Board** modes
+- **Ollama / Cloud API** — optional upgrades in Settings
+
+### Model tiers (Windows built-in AI)
+
+| Tier | Model | Size | Tools |
+|------|-------|------|-------|
+| Fast | Qwen2.5-0.5B | ~350 MB | Chat only |
+| Balanced | Llama 3.2 1B | ~700 MB | Chat only (default) |
+| Quality | Qwen2.5 3B | ~2 GB download | Chat + file/memory tools |
 
 ## Developers
 

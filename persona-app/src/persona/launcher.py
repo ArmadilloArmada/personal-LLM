@@ -95,6 +95,12 @@ def _run_uvicorn(host: str, port: int) -> None:
 
 def _shutdown() -> None:
     try:
+        from persona.bundled import stop_bundled_server
+
+        stop_bundled_server()
+    except Exception:
+        pass
+    try:
         from persona.big_brain.process import stop_brain_server
 
         stop_brain_server()
@@ -122,6 +128,15 @@ def run_standalone(*, window: bool = False, port: int | None = None) -> None:
         env_port = os.environ.get("PERSONA_WEB_PORT")
         port = int(env_port) if env_port else find_free_port(settings.web_port)
     provider = resolve_provider_mode(settings)
+
+    if provider == "bundled":
+        from persona.bundled import start_bundled_server
+
+        _log_startup("launcher: starting bundled llama-server")
+        if not start_bundled_server(settings):
+            _log_startup("launcher: bundled server failed — falling back to demo")
+            provider = "demo"
+            os.environ["PERSONA_PROVIDER"] = "demo"
 
     os.environ["PERSONA_PROVIDER"] = provider
     os.environ["PERSONA_WEB_PORT"] = str(port)
@@ -210,6 +225,7 @@ def _run_tray_loop(url: str) -> None:
 def _print_banner(url: str, provider: str) -> None:
     mode = {
         "demo": "Demo",
+        "bundled": "Built-in AI",
         "ollama": "Ollama",
         "openai": "Cloud API",
     }.get(provider, provider)
