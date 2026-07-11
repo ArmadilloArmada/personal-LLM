@@ -2,7 +2,7 @@
 ; Build after portable folder is assembled at ..\..\..\Persona\dist\Persona
 
 #define MyAppName "Persona"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.1.2"
 #define MyAppPublisher "Persona"
 #define MyAppURL "https://github.com/ArmadilloArmada/Persona/releases/latest"
 #define MyAppExeName "Persona.exe"

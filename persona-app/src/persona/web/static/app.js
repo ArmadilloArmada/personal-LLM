@@ -1392,11 +1392,13 @@ async function checkUpdates(showInSettings = false) {
   if (data.available) {
     const msg = `Update available: v${data.latest} (you have v${data.current})`;
     if (showInSettings) {
-      $("#update-info").innerHTML = `${msg} — <a href="${data.url}" target="_blank" rel="noopener">Download</a>`;
+      const dl = data.download_url || data.url;
+      $("#update-info").innerHTML = `${msg} — <a href="${dl}" target="_blank" rel="noopener">Download installer</a>`;
     } else {
       updateBanner.hidden = false;
       updateBanner.className = "status-banner update";
-      updateBanner.innerHTML = `${msg} — <a href="${data.url}" target="_blank" rel="noopener">Get update</a>`;
+      const dl = data.download_url || data.url;
+      updateBanner.innerHTML = `${msg} — <a href="${dl}" target="_blank" rel="noopener">Download installer</a>`;
     }
   } else if (showInSettings) {
     $("#update-info").textContent = `You're on the latest version (v${data.current || state.appVersion}).`;

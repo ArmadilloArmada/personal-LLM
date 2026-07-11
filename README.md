@@ -80,7 +80,14 @@ Persona/
 
 ## Releases
 
-Tag `v*` (e.g. `v1.1.0`) triggers the Windows CI build, installer, and GitHub Release. See [.github/workflows/build-windows.yml](.github/workflows/build-windows.yml).
+Tag `v*` (e.g. `v1.1.2`) triggers the Windows CI build, installer, and GitHub Release with:
+
+- `Persona-Setup.exe` — recommended installer
+- `Persona-Windows-portable.zip` — portable folder
+
+Manual runs of the [Windows build workflow](https://github.com/ArmadilloArmada/Persona/actions/workflows/build-windows.yml) upload CI artifacts only; only tagged pushes publish to [Releases](https://github.com/ArmadilloArmada/Persona/releases/latest).
+
+See [.github/workflows/build-windows.yml](.github/workflows/build-windows.yml).
 
 ## License
 

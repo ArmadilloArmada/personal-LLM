@@ -25,7 +25,7 @@ npm run dev:all
 
 ## Persona integration
 
-See [integrations/big-brain/README.md](../integrations/big-brain/README.md) to enable automatic chat capture from Persona.
+Chat capture runs server-side in Persona when Big Brain is running. See [docs/DUAL_RAG.md](../docs/DUAL_RAG.md) for architecture details.
 
 ## Workflow node types
 
