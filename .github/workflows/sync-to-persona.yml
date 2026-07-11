@@ -1,0 +1,28 @@
+name: Sync canonical code to Persona
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [cursor/persona-canonical-11bf]
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to ArmadilloArmada/Persona
+        env:
+          PERSONA_SYNC_TOKEN: ${{ secrets.PERSONA_SYNC_TOKEN }}
+        run: |
+          if [ -z "$PERSONA_SYNC_TOKEN" ]; then
+            echo "::error::Add repo secret PERSONA_SYNC_TOKEN (fine-grained PAT with Persona repo write access), then re-run this workflow."
+            exit 1
+          fi
+          git push "https://x-access-token:${PERSONA_SYNC_TOKEN}@github.com/ArmadilloArmada/Persona.git" HEAD:main --force
+          echo "Synced to https://github.com/ArmadilloArmada/Persona"
