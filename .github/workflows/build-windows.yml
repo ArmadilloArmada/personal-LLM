@@ -1,0 +1,12 @@
+name: Build (deprecated — use Persona repo)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deprecated:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::error::Builds run from https://github.com/ArmadilloArmada/Persona"
+          exit 1
