@@ -55,7 +55,7 @@ pip install -e persona-app[desktop,dev]
 npm run dev
 ```
 
-`npm start` is a dev launcher only. Shipped builds come from CI as **Persona-Windows-portable.zip**.
+`npm start` is a dev launcher only. Shipped builds come from CI as **Persona-Setup.exe** (installer) and **Persona-Windows-portable.zip** (portable).
 
 ## Privacy
 

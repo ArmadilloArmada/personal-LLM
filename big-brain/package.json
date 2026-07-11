@@ -1,6 +1,6 @@
 {
   "name": "big-brain",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "private": true,
   "description": "Big Brain — Obsidian-like knowledge graph for Persona",
   "workspaces": [

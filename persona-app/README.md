@@ -1,12 +1,17 @@
 # Persona + Big Brain
 
-**Persona** is a standalone Windows AI agent app with an integrated **Big Brain** knowledge vault. Download, unzip, double-click — no Python or Node setup for end users.
+**Persona** is a standalone Windows AI agent app with an integrated **Big Brain** knowledge vault. Download and run — no Python or Node setup for end users.
 
 ## Download (Windows)
 
-**https://github.com/ArmadilloArmada/Persona/releases/latest/download/Persona-Windows-portable.zip**
+| Install | Link |
+|---------|------|
+| **Installer (recommended)** | [Persona-Setup.exe](https://github.com/ArmadilloArmada/Persona/releases/latest/download/Persona-Setup.exe) |
+| Portable zip | [Persona-Windows-portable.zip](https://github.com/ArmadilloArmada/Persona/releases/latest/download/Persona-Windows-portable.zip) |
 
-1. Download and unzip the **entire folder**
+[All releases](https://github.com/ArmadilloArmada/Persona/releases/latest)
+
+1. Run **Persona-Setup.exe** — or download and unzip the portable folder
 2. Double-click **Persona.exe** (or **Run Persona.bat**)
 3. Use **Chat** and **Big Brain** tabs in the header
 
