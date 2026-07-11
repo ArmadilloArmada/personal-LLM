@@ -1,4 +1,4 @@
-name: Deploy interactive demo
+name: Deploy redirect to Persona demo
 
 on:
   push:

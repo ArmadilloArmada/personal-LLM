@@ -1,54 +1,17 @@
-name: Build Persona macOS
+name: Build Persona macOS (deprecated)
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  test-macos:
-    runs-on: macos-latest
+  deprecated:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install and test
+      - name: Builds moved to ArmadilloArmada/Persona
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-          python -m pytest tests/ -q
-
-  build-macos:
-    runs-on: macos-latest
-    needs: test-macos
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Build portable macOS app folder
-        run: |
-          chmod +x scripts/build-macos.sh
-          ./scripts/build-macos.sh
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Persona-macOS
-          path: dist/Persona-macOS-portable.zip
-
-      - name: Publish GitHub Release (on tag)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/Persona-macOS-portable.zip
-          generate_release_notes: false
+          echo "::error::macOS builds now run from https://github.com/ArmadilloArmada/Persona"
+          echo "This repo (personal-LLM) is deprecated. Tag and release from Persona instead."
+          exit 1

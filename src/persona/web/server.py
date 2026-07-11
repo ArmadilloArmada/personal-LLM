@@ -30,7 +30,7 @@ from persona.rag import DocumentStore
 from persona.user_config import get_user_config, save_user_config
 
 APP_VERSION = "1.0.3"
-GITHUB_REPO = "ArmadilloArmada/personal-LLM"
+GITHUB_REPO = "ArmadilloArmada/Persona"
 
 def _static_dir() -> Path:
     if getattr(sys, "frozen", False):
