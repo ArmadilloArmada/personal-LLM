@@ -6,10 +6,10 @@
 
 | Install | Link |
 |---------|------|
-| **Installer (recommended)** | [Persona-Setup.exe](https://github.com/ArmadilloArmada/Persona/releases/latest/download/Persona-Setup.exe) |
-| Portable zip | [Persona-Windows-portable.zip](https://github.com/ArmadilloArmada/Persona/releases/latest/download/Persona-Windows-portable.zip) |
+| **Installer (recommended)** | [Persona-Setup.exe](https://github.com/ArmadilloArmada/personal-LLM/releases/latest/download/Persona-Setup.exe) |
+| Portable zip | [Persona-Windows-portable.zip](https://github.com/ArmadilloArmada/personal-LLM/releases/latest/download/Persona-Windows-portable.zip) |
 
-[All releases](https://github.com/ArmadilloArmada/Persona/releases/latest)
+[All releases](https://github.com/ArmadilloArmada/personal-LLM/releases/latest)
 
 1. Run **Persona-Setup.exe** — or download and unzip the portable folder
 2. Double-click **Persona.exe** (or **Run Persona.bat**)
