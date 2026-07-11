@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -23,12 +23,17 @@ from persona.llm import provider_status
 from persona.memory import MemoryStore
 from persona.personas import get_persona
 from persona.projects import BOARD_COLUMNS
-from persona.providers import ollama_available, ollama_installed_models, ollama_ready
+from persona.providers import (
+    ollama_available,
+    ollama_installed_models,
+    ollama_ready,
+    resolve_provider_mode,
+)
 from persona.rag import DocumentStore
 from persona.web.brain_routes import augment_message_with_rag, capture_turn, register_brain_routes
 from persona.user_config import get_user_config, save_user_config
 
-APP_VERSION = "1.1.2"
+APP_VERSION = "1.2.0"
 GITHUB_REPO = "ArmadilloArmada/Persona"
 RELEASE_ASSET = "Persona-Setup.exe"
 RELEASE_ASSET_PORTABLE = "Persona-Windows-portable.zip"
@@ -93,11 +98,21 @@ class CustomPersonaRequest(BaseModel):
 
 
 class ProviderRequest(BaseModel):
-    provider: str = Field(pattern="^(auto|demo|ollama|openai)$")
+    provider: str = Field(pattern="^(auto|demo|bundled|ollama|openai)$")
+
+
+class BundledSettingsRequest(BaseModel):
+    bundled_model_tier: str | None = Field(default=None, pattern="^(fast|balanced|quality)$")
+    bundled_threads: int | None = Field(default=None, ge=0, le=64)
+    bundled_gpu_layers: int | None = Field(default=None, ge=-1, le=999)
+
+
+class ModelTierRequest(BaseModel):
+    tier: str = Field(pattern="^(fast|balanced|quality)$")
 
 
 class SettingsRequest(BaseModel):
-    provider: str = Field(default="auto", pattern="^(auto|demo|ollama|openai)$")
+    provider: str = Field(default="auto", pattern="^(auto|demo|bundled|ollama|openai)$")
     ollama_base_url: str | None = None
     ollama_model: str | None = None
     openai_base_url: str | None = None
@@ -135,6 +150,12 @@ class TaskCreateRequest(BaseModel):
     column: str = "backlog"
 
 
+class PackExportRequest(BaseModel):
+    persona_ids: list[str] | None = None
+    name: str = "My Persona Pack"
+    description: str = ""
+
+
 def _sse_event(event_type: str, data: dict[str, Any]) -> str:
     return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
@@ -167,6 +188,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             settings.onboarding_completed = req.onboarding_completed
         save_user_config(settings)
         crew.refresh_provider()
+        from persona.bundled import bundled_ready, start_bundled_server, stop_bundled_server
+
+        active = resolve_provider_mode(settings)
+        if active == "bundled" and bundled_ready(settings):
+            start_bundled_server(settings, force=True)
+        elif active != "bundled":
+            stop_bundled_server()
         return _settings_payload()
 
     def _settings_payload() -> dict[str, Any]:
@@ -205,6 +233,46 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="Custom persona not found or is built-in")
         crew.avatars.delete(persona_id)
         return {"deleted": persona_id}
+
+    @app.get("/api/personas/gallery")
+    def list_gallery():
+        return {"packs": crew.list_gallery_packs()}
+
+    @app.post("/api/personas/gallery/{pack_id}/import")
+    def import_gallery_pack(pack_id: str):
+        try:
+            personas = crew.import_gallery_pack(pack_id)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"imported_pack": pack_id, "personas": personas}
+
+    @app.post("/api/personas/pack/export")
+    def export_persona_pack(req: PackExportRequest):
+        try:
+            filename, yaml_content = crew.export_persona_pack(
+                req.persona_ids, name=req.name, description=req.description
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return Response(
+            content=yaml_content,
+            media_type="application/x-yaml",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    @app.post("/api/personas/pack/import")
+    async def import_persona_pack(file: UploadFile = File(...)):
+        suffix = Path(file.filename or "").suffix.lower()
+        if suffix not in (".yaml", ".yml"):
+            raise HTTPException(status_code=400, detail="Pack must be a .yaml or .yml file")
+        content = (await file.read()).decode("utf-8", errors="replace")
+        try:
+            imported = crew.import_persona_pack(content)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"imported": imported, "count": len(imported)}
 
     @app.post("/api/personas/{persona_id}/avatar")
     async def upload_avatar(persona_id: str, file: UploadFile = File(...)):
@@ -276,7 +344,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "provider_info": pinfo,
             "model": settings.openai_model
             if pinfo["active"] == "openai"
-            else settings.ollama_model,
+            else settings.ollama_model
+            if pinfo["active"] == "ollama"
+            else pinfo.get("bundled", {}).get("active_tier", "built-in"),
             "workspace": str(settings.workspace),
             "board_columns": BOARD_COLUMNS,
             "team_workspace": ws.to_dict() if ws else None,
@@ -301,6 +371,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post("/api/settings/test")
     def test_provider(req: SettingsRequest = SettingsRequest()):
+        from persona.bundled import bundled_ready as is_bundled_ready
+
         probe = Settings(**settings.model_dump())
         probe.provider = req.provider
         if req.ollama_base_url:
@@ -315,6 +387,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             probe.openai_api_key = req.openai_api_key.strip()
 
         mode = req.provider
+        if mode == "bundled" or (mode == "auto" and is_bundled_ready(probe)):
+            if is_bundled_ready(probe):
+                return {"ok": True, "message": "Built-in AI is ready.", "provider": "bundled"}
+            return {"ok": False, "message": "Built-in AI binaries or models are not available."}
+
         if mode == "ollama" or (mode == "auto" and ollama_ready(probe)):
             if not ollama_available(probe):
                 return {"ok": False, "message": "Ollama is not running at " + probe.ollama_base_url}
@@ -413,6 +490,61 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 text = path.read_text(encoding="utf-8", errors="replace")
                 result[name] = text[-8000:] if len(text) > 8000 else text
         return {"logs": result, "log_dir": str(log_dir)}
+
+    @app.get("/api/templates")
+    def list_templates():
+        from persona.templates import project_templates
+
+        return {"templates": project_templates()}
+
+    @app.get("/api/bundled/status")
+    def bundled_info():
+        from persona.bundled import bundled_status
+
+        return bundled_status(settings)
+
+    @app.post("/api/bundled/settings")
+    def update_bundled_settings(req: BundledSettingsRequest):
+        from persona.bundled import restart_bundled_server, save_bundled_preferences
+
+        updates: dict[str, Any] = {}
+        if req.bundled_model_tier is not None:
+            updates["bundled_model_tier"] = req.bundled_model_tier
+            settings.bundled_model_tier = req.bundled_model_tier
+        if req.bundled_threads is not None:
+            updates["bundled_threads"] = req.bundled_threads
+            settings.bundled_threads = req.bundled_threads
+        if req.bundled_gpu_layers is not None:
+            updates["bundled_gpu_layers"] = req.bundled_gpu_layers
+            settings.bundled_gpu_layers = req.bundled_gpu_layers
+        if updates:
+            save_bundled_preferences(updates)
+        if resolve_provider_mode(settings) == "bundled":
+            restart_bundled_server(settings)
+        from persona.bundled import bundled_status
+
+        return {"bundled": bundled_status(settings)}
+
+    @app.post("/api/bundled/download")
+    def start_model_download(req: ModelTierRequest):
+        from persona.bundled import download_model_async, download_status
+
+        if not download_model_async(req.tier, settings):
+            raise HTTPException(status_code=409, detail="Download already in progress")
+        return download_status()
+
+    @app.get("/api/bundled/download")
+    def model_download_status():
+        from persona.bundled import download_status
+
+        return download_status()
+
+    @app.post("/api/bundled/restart")
+    def restart_bundled():
+        from persona.bundled import bundled_status, restart_bundled_server
+
+        ok = restart_bundled_server(settings)
+        return {"ok": ok, "bundled": bundled_status(settings)}
 
     @app.post("/api/chat")
     def chat(req: ChatRequest):

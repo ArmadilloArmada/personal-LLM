@@ -9,6 +9,10 @@ brain_root = root.parent / "big-brain"
 
 datas = [(str(src), "persona/web/static")]
 
+personas_dir = root / "personas"
+if personas_dir.exists():
+    datas.append((str(personas_dir), "personas"))
+
 brain_client = brain_root / "client" / "dist"
 brain_server = brain_root / "server" / "dist"
 if brain_client.exists():
@@ -33,6 +37,9 @@ a = Analysis(
         "persona.big_brain.process",
         "persona.big_brain.paths",
         "persona.web.brain_routes",
+        "persona.bundled",
+        "persona.gallery",
+        "persona.templates",
         "persona.providers",
         "persona.demo",
         "persona.web.server",

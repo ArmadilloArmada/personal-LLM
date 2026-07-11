@@ -9,17 +9,28 @@ Persona is your local AI agent workspace. Big Brain is your knowledge vault and 
    https://github.com/ArmadilloArmada/Persona/releases/latest
 2. Run the installer — or unzip the portable folder (keep all files together).
 3. Double-click **Persona.exe** (or use **Run Persona.bat**).
-4. Use the tray icon (purple P) to open or quit Persona.
-5. Use the **Chat** and **Big Brain** tabs in the header.
+4. Built-in AI loads automatically — first start may take ~30 seconds.
+5. Use the tray icon (purple P) to open or quit Persona.
+6. Use the **Chat** and **Big Brain** tabs in the header.
 
 Optional: run **Create Desktop Shortcut.bat** to pin Persona to your desktop.
 
-## What you get
+## What's included (~1.3 GB total)
 
-- **Chat** — Solo, Group, Project, and Board modes with built-in agents
-- **Big Brain** — Vault, graph, workflows, and automatic chat capture
-- **Demo mode** — works instantly with no API keys
-- **Ollama** — auto-detected for local models (install from https://ollama.com)
+- **Built-in offline AI** — llama-server + Fast (~350 MB) + Balanced (~700 MB) models
+- **Quality model** (Qwen2.5 3B, ~2 GB) — download from Settings for file & memory tools
+- **Big Brain** — vault, graph, workflows, chat capture
+- **5 built-in agents** — Byte, Sunny, Nova, Sketch, Captain
+- **Agent packs** — curated teams you can import from the sidebar
+- **Voice** — speaker icon for spoken replies; mic button for voice input
+
+## Settings (inside the app)
+
+- **Built-in AI** — default on Windows, works offline
+- **Model manager** — Fast / Balanced / Quality tiers
+- **CPU threads & GPU layers** — tune performance
+- **Ollama / Cloud API** — optional upgrades
+- **Big Brain** — vault capture and RAG injection
 
 ## Your data (private, local)
 
@@ -28,6 +39,8 @@ Everything stays on your PC:
 ```
 %USERPROFILE%\.persona\
 ├── config.json       # LLM settings
+├── preferences.json  # Built-in AI model tier, threads
+├── models\           # Downloaded Quality model
 ├── vault\            # Big Brain markdown notes
 ├── big-brain.db      # Brain settings, graph, workflows
 ├── chat_history.json
@@ -39,11 +52,17 @@ Everything stays on your PC:
 
 | Problem | Fix |
 |---------|-----|
-| App won't start | Check `%USERPROFILE%\.persona\startup.log`. Try **Run Persona.bat** — if the server is up, open http://127.0.0.1:8765 in your browser. |
-| No window appears | Persona may still be running in the background. Open http://127.0.0.1:8765 or use **Run Persona.bat**. |
+| App won't start | Check `%USERPROFILE%\.persona\startup.log`. Try **Run Persona.bat**. |
+| No window appears | Persona may still be running. Open http://127.0.0.1:8765 or use **Run Persona.bat**. |
+| Built-in AI slow | First load takes ~30s. Try Fast tier in Settings if RAM is limited. |
 | Big Brain offline | Check `%USERPROFILE%\.persona\brain.log` |
-| Old UI after update | Close Persona fully and reopen (no browser cache needed in app window) |
+| Old UI after update | Close Persona fully and reopen |
 | Port in use | Close other Persona instances; default port is 8765 |
+
+IMPORTANT:
+- Do NOT move Persona.exe out of the portable folder.
+- The "_internal" folder must stay next to Persona.exe.
+- Recommended: 8 GB+ RAM (16 GB ideal for Quality model).
 
 ## Developers
 
@@ -55,7 +74,7 @@ pip install -e persona-app[desktop,dev]
 npm run dev
 ```
 
-`npm start` is a dev launcher only. Shipped builds come from CI as **Persona-Windows-portable.zip**.
+`npm start` is a dev launcher only. Shipped builds come from CI as **Persona-Setup.exe** (installer) and **Persona-Windows-portable.zip** (portable).
 
 ## Privacy
 

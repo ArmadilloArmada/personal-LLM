@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Persona — one-command install & launch
-# Usage: curl -fsSL https://raw.githubusercontent.com/ArmadilloArmada/personal-LLM/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/ArmadilloArmada/Persona/main/persona-app/install.sh | bash
+#
+# Windows users: use the installer instead — see persona-app/DOWNLOAD.md
 set -euo pipefail
 
 INSTALL_DIR="${PERSONA_INSTALL_DIR:-$HOME/.local/share/persona-app}"
+REPO_DIR="${PERSONA_REPO_DIR:-$(dirname "$INSTALL_DIR")/persona}"
+SOURCE_DIR="$INSTALL_DIR"
 BIN_DIR="${HOME}/.local/bin"
 DESKTOP_DIR="${HOME}/.local/share/applications"
 
@@ -21,23 +25,32 @@ PYVER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_in
 echo "  → Python $PYVER"
 
 # Clone or update
-if [ -d "$INSTALL_DIR/.git" ]; then
+if [ -f "$(dirname "$0")/pyproject.toml" ] && grep -q 'name = "persona"' "$(dirname "$0")/pyproject.toml" 2>/dev/null; then
+  SOURCE_DIR="$(cd "$(dirname "$0")" && pwd)"
+  INSTALL_DIR="$SOURCE_DIR"
+  echo "  → Installing from local source: $SOURCE_DIR"
+elif [ -d "$REPO_DIR/.git" ]; then
+  echo "  → Updating existing install at $REPO_DIR"
+  git -C "$REPO_DIR" pull --ff-only 2>/dev/null || true
+  SOURCE_DIR="$REPO_DIR/persona-app"
+  INSTALL_DIR="$SOURCE_DIR"
+elif [ -d "$INSTALL_DIR/.git" ] && [ -f "$INSTALL_DIR/pyproject.toml" ]; then
   echo "  → Updating existing install at $INSTALL_DIR"
   git -C "$INSTALL_DIR" pull --ff-only 2>/dev/null || true
-elif [ -f "$(dirname "$0")/pyproject.toml" ] && grep -q 'name = "persona"' "$(dirname "$0")/pyproject.toml" 2>/dev/null; then
-  INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
-  echo "  → Installing from local source: $INSTALL_DIR"
+  SOURCE_DIR="$INSTALL_DIR"
 else
-  echo "  → Downloading Persona to $INSTALL_DIR"
-  mkdir -p "$(dirname "$INSTALL_DIR")"
-  git clone --depth 1 https://github.com/ArmadilloArmada/personal-LLM.git "$INSTALL_DIR" 2>/dev/null || {
-  echo "  → Git clone failed; copy this repo to $INSTALL_DIR manually"
-  exit 1
+  echo "  → Downloading Persona to $REPO_DIR"
+  mkdir -p "$(dirname "$REPO_DIR")"
+  git clone --depth 1 https://github.com/ArmadilloArmada/Persona.git "$REPO_DIR" 2>/dev/null || {
+    echo "  → Git clone failed; copy this repo to $REPO_DIR manually"
+    exit 1
   }
+  SOURCE_DIR="$REPO_DIR/persona-app"
+  INSTALL_DIR="$SOURCE_DIR"
 fi
 
 # Venv + install
-cd "$INSTALL_DIR"
+cd "$SOURCE_DIR"
 if [ ! -d ".venv" ]; then
   echo "  → Creating virtual environment"
   python3 -m venv .venv

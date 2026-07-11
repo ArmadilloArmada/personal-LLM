@@ -474,12 +474,50 @@ async function clearChatHistory() {
   if (!messages.querySelector(".welcome-bubble")) {
     const welcome = document.createElement("div");
     welcome.className = "welcome-bubble";
+    welcome.id = "welcome-bubble";
     welcome.innerHTML = `
-      <h3>Welcome to Persona</h3>
-      <p>Start chatting immediately — demo mode works out of the box.</p>
-      <p>Select an agent, try Solo or Project mode, and connect a real LLM in Settings when ready.</p>`;
+      <h3>What would you like to work on?</h3>
+      <p>Pick a template — Captain and the crew will plan it with you in Project mode.</p>
+      <div class="template-grid" id="template-grid"></div>`;
     messages.appendChild(welcome);
+    renderTemplates();
   }
+}
+
+// --- Project templates ---
+
+let projectTemplates = [];
+
+async function loadTemplates() {
+  const res = await fetch("/api/templates");
+  if (!res.ok) return;
+  const data = await res.json();
+  projectTemplates = data.templates || [];
+}
+
+function renderTemplates() {
+  const grid = $("#template-grid");
+  if (!grid || !projectTemplates.length) return;
+  grid.innerHTML = "";
+  projectTemplates.forEach((t) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "template-card";
+    btn.innerHTML = `
+      <span class="template-emoji">${t.emoji || "✨"}</span>
+      <strong>${escapeHtml(t.title)}</strong>
+      <span class="template-desc">${escapeHtml(t.description || "")}</span>`;
+    btn.addEventListener("click", () => startTemplate(t));
+    grid.appendChild(btn);
+  });
+}
+
+function startTemplate(template) {
+  setMode(template.mode || "project");
+  messages.querySelector(".welcome-bubble")?.remove();
+  input.value = template.prompt || "";
+  input.focus();
+  composer.requestSubmit();
 }
 
 // --- Voice ---
@@ -911,6 +949,92 @@ async function loadProjects() {
   });
 }
 
+// --- Persona packs ---
+
+async function loadGallery() {
+  const list = $("#gallery-list");
+  if (!list) return;
+  const res = await fetch("/api/personas/gallery");
+  if (!res.ok) return;
+  const data = await res.json();
+  list.innerHTML = "";
+  (data.packs || []).forEach((pack) => {
+    const li = document.createElement("li");
+    li.className = "gallery-item";
+    const agents = (pack.agents || []).map((a) => a.emoji || "🤖").join("");
+    li.innerHTML = `
+      <button type="button" class="gallery-import-btn" data-pack="${pack.id}">
+        <span class="gallery-emoji">${pack.emoji || "📦"}</span>
+        <span class="gallery-meta">
+          <strong>${escapeHtml(pack.name)}</strong>
+          <small>${escapeHtml(pack.description || "")} · ${pack.agent_count} agents ${agents}</small>
+        </span>
+      </button>`;
+    list.appendChild(li);
+  });
+  list.querySelectorAll(".gallery-import-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const packId = btn.dataset.pack;
+      const res = await fetch(`/api/personas/gallery/${packId}/import`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Import failed");
+        return;
+      }
+      await loadPersonas();
+      btn.textContent = "✓ Imported";
+      btn.disabled = true;
+    });
+  });
+}
+
+$("#export-pack-btn")?.addEventListener("click", async () => {
+  const custom = state.personas.filter((p) => p.is_custom);
+  if (!custom.length) {
+    alert("No custom agents to export. Create an agent or import a pack first.");
+    return;
+  }
+  const name = prompt("Pack name:", "My Persona Pack") || "My Persona Pack";
+  const res = await fetch("/api/personas/pack/export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      persona_ids: custom.map((p) => p.id),
+      name,
+      description: `Exported from Persona on ${new Date().toLocaleDateString()}`,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(err.detail || "Export failed");
+    return;
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "persona-pack"}.yaml`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+$("#pack-import")?.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch("/api/personas/pack/import", { method: "POST", body: form });
+  e.target.value = "";
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    alert(err.detail || "Import failed");
+    return;
+  }
+  const data = await res.json();
+  await loadPersonas();
+  alert(`Imported ${data.count} agent${data.count === 1 ? "" : "s"} from pack.`);
+});
+
 // --- Custom persona dialog ---
 
 $("#add-persona-btn").addEventListener("click", () => personaDialog.showModal());
@@ -1063,6 +1187,104 @@ const settingsDialog = $("#settings-dialog");
 const settingsForm = $("#settings-form");
 const providerSelect = $("#provider-select");
 const providerStatus = $("#provider-status");
+const bundledSettings = $("#bundled-settings");
+const modelTierList = $("#model-tier-list");
+const ramStatus = $("#ram-status");
+const downloadStatus = $("#download-status");
+const bundledThreads = $("#bundled-threads");
+const bundledGpuLayers = $("#bundled-gpu-layers");
+
+let selectedModelTier = "balanced";
+let downloadPollTimer = null;
+
+async function fetchBundledStatus() {
+  const res = await fetch("/api/bundled/status");
+  return res.json();
+}
+
+function renderModelTiers(bundled) {
+  if (!modelTierList || !bundled?.models) return;
+  selectedModelTier = bundled.active_tier || "balanced";
+  modelTierList.innerHTML = "";
+  bundled.models.forEach((tier) => {
+    const card = document.createElement("div");
+    card.className = `model-tier-card${tier.active ? " active" : ""}`;
+    const size = tier.size_mb ? `${tier.size_mb} MB` : tier.bundled ? "bundled" : "download";
+    const ramNote = tier.ram_ok ? "" : " — needs more RAM";
+    const toolsNote = tier.supports_tools ? " · file tools" : "";
+    card.innerHTML = `
+      <h5>${tier.label}${tier.active ? " (active)" : ""}</h5>
+      <p>${tier.description} · ${size}${toolsNote}${ramNote}</p>
+      <div class="model-tier-actions"></div>
+    `;
+    const actions = card.querySelector(".model-tier-actions");
+    if (tier.installed) {
+      const useBtn = document.createElement("button");
+      useBtn.textContent = tier.active ? "Selected" : "Use this model";
+      useBtn.className = tier.active ? "" : "primary";
+      useBtn.disabled = tier.active;
+      useBtn.addEventListener("click", () => {
+        selectedModelTier = tier.id;
+        renderModelTiers({ ...bundled, active_tier: tier.id, models: bundled.models.map((m) => ({
+          ...m,
+          active: m.id === tier.id,
+        })) });
+      });
+      actions.appendChild(useBtn);
+    } else {
+      const dlBtn = document.createElement("button");
+      dlBtn.textContent = "Download";
+      dlBtn.className = "primary";
+      dlBtn.addEventListener("click", () => startModelDownload(tier.id));
+      actions.appendChild(dlBtn);
+    }
+    modelTierList.appendChild(card);
+  });
+}
+
+async function startModelDownload(tier) {
+  await fetch("/api/bundled/download", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tier }),
+  });
+  pollDownloadStatus();
+}
+
+function pollDownloadStatus() {
+  if (downloadPollTimer) clearInterval(downloadPollTimer);
+  downloadPollTimer = setInterval(async () => {
+    const res = await fetch("/api/bundled/download");
+    const dl = await res.json();
+    if (!downloadStatus) return;
+    if (dl.active) {
+      downloadStatus.hidden = false;
+      downloadStatus.textContent = `Downloading ${dl.tier}… ${dl.progress || 0}%`;
+    } else {
+      downloadStatus.hidden = !dl.error;
+      downloadStatus.textContent = dl.error ? `Download failed: ${dl.error}` : "";
+      if (!dl.error) {
+        clearInterval(downloadPollTimer);
+        downloadPollTimer = null;
+        await loadBundledSettings();
+        await loadAppStatus();
+      }
+    }
+  }, 1500);
+}
+
+async function loadBundledSettings() {
+  const bundled = await fetchBundledStatus();
+  if (ramStatus) {
+    ramStatus.textContent =
+      `System RAM: ${bundled.system_ram_gb} GB` +
+      (bundled.ram_warning ? " — 8 GB+ recommended for larger models" : "");
+  }
+  if (bundledThreads) bundledThreads.value = bundled.threads || 0;
+  if (bundledGpuLayers) bundledGpuLayers.value = bundled.gpu_layers ?? -1;
+  renderModelTiers(bundled);
+  return bundled;
+}
 
 async function loadAppSettings() {
   const res = await fetch("/api/settings");
@@ -1096,26 +1318,49 @@ async function loadAppStatus() {
   const data = await res.json();
   const info = data.provider_info || {};
   const mode = data.provider || "demo";
+  const bundled = info.bundled || {};
   state.appVersion = data.version || state.appVersion;
 
   statusBanner.hidden = false;
-  if (mode === "demo") {
+  if (mode === "bundled" && !info.bundled_tools_supported) {
+    statusBanner.className = "status-banner demo";
+    const tier = (bundled.models || []).find((m) => m.active);
+    statusBanner.innerHTML =
+      `<strong>Built-in AI</strong> — offline chat on <code>${tier?.label || bundled.active_tier || "balanced"}</code>. ` +
+      "Download the <strong>Quality</strong> model in Settings for file & memory tools.";
+  } else if (mode === "bundled") {
+    statusBanner.className = "status-banner live";
+    const tier = (bundled.models || []).find((m) => m.active);
+    const toolsNote = info.bundled_tools_supported ? " File & memory tools enabled." : "";
+    statusBanner.innerHTML =
+      `<strong>Built-in AI</strong> — offline, no Ollama needed. ` +
+      `Model: <code>${tier?.label || bundled.active_tier || "balanced"}</code>.${toolsNote}`;
+  } else if (mode === "demo") {
     statusBanner.className = "status-banner demo";
     statusBanner.innerHTML =
       "<strong>Demo mode</strong> — works without setup. " +
-      '<button type="button" class="inline-link" id="banner-settings">Open Settings</button> to connect Ollama or a cloud API.';
+      '<button type="button" class="inline-link" id="banner-settings">Open Settings</button> ' +
+      "to enable built-in AI, Ollama, or a cloud API.";
     $("#banner-settings")?.addEventListener("click", () => {
       loadAppSettings().then((s) => {
         fillSettingsForm(s);
+        loadBundledSettings();
         settingsDialog.showModal();
       });
     });
   } else if (mode === "ollama" && info.ollama_available && !info.ollama_model_ready) {
     statusBanner.className = "status-banner demo";
     const model = info.ollama_model || "llama3.2";
+    const using = info.ollama_model_resolved || model;
     statusBanner.innerHTML =
-      `<strong>Ollama is running</strong> but model <code>${model}</code> is not installed. ` +
-      `Run <code>ollama pull ${model.split(":")[0]}</code> or switch to Demo in Settings.`;
+      `<strong>Ollama is running</strong> — using <code>${using}</code> ` +
+      `(configured <code>${model}</code> not found). ` +
+      `Run <code>ollama pull ${model.split(":")[0]}</code> or use Built-in AI.`;
+  } else if (mode === "ollama" && !info.ollama_tools_supported) {
+    statusBanner.className = "status-banner demo";
+    statusBanner.innerHTML =
+      `<strong>Ollama connected</strong> — model <code>${info.ollama_model_resolved || info.ollama_model}</code> ` +
+      "does not support tools. Chat works, but file/memory tools are disabled.";
   } else if (mode === "ollama") {
     statusBanner.className = "status-banner live";
     statusBanner.innerHTML = "<strong>Ollama connected.</strong> Using local AI.";
@@ -1124,10 +1369,17 @@ async function loadAppStatus() {
     statusBanner.innerHTML = `<strong>${mode === "openai" ? "Cloud AI" : mode}</strong> connected.`;
   }
 
+  if (providerSelect) {
+    if (info.active === "bundled") providerSelect.value = "bundled";
+    else if (info.active === "demo") providerSelect.value = "demo";
+    else if (info.active === "ollama") providerSelect.value = "ollama";
+    else if (info.active === "openai") providerSelect.value = "openai";
+    else providerSelect.value = "auto";
+  }
   if (providerStatus) {
+    const builtin = info.bundled_available ? "yes" : "no";
     providerStatus.textContent =
-      `Active: ${mode} | Ollama: ${info.ollama_available ? "yes" : "no"} | ` +
-      `Model: ${info.ollama_model_ready ? "ready" : "missing"} | ` +
+      `Active: ${mode} | Built-in AI: ${builtin} | Ollama: ${info.ollama_available ? "yes" : "no"} | ` +
       `API key: ${info.openai_configured ? "yes" : "no"}`;
   }
 
@@ -1140,11 +1392,13 @@ async function checkUpdates(showInSettings = false) {
   if (data.available) {
     const msg = `Update available: v${data.latest} (you have v${data.current})`;
     if (showInSettings) {
-      $("#update-info").innerHTML = `${msg} — <a href="${data.url}" target="_blank" rel="noopener">Download</a>`;
+      const dl = data.download_url || data.url;
+      $("#update-info").innerHTML = `${msg} — <a href="${dl}" target="_blank" rel="noopener">Download installer</a>`;
     } else {
       updateBanner.hidden = false;
       updateBanner.className = "status-banner update";
-      updateBanner.innerHTML = `${msg} — <a href="${data.url}" target="_blank" rel="noopener">Get update</a>`;
+      const dl = data.download_url || data.url;
+      updateBanner.innerHTML = `${msg} — <a href="${dl}" target="_blank" rel="noopener">Download installer</a>`;
     }
   } else if (showInSettings) {
     $("#update-info").textContent = `You're on the latest version (v${data.current || state.appVersion}).`;
@@ -1154,8 +1408,16 @@ async function checkUpdates(showInSettings = false) {
 
 async function showOnboarding(statusData) {
   if (statusData?.onboarding_completed) return;
-  const ollamaEl = $("#onboarding-ollama-status");
   const info = statusData?.provider_info || {};
+  const builtinEl = $("#onboarding-builtin-status");
+  if (builtinEl) {
+    if (info.bundled_available) {
+      builtinEl.textContent = "Built-in offline AI is ready — no install needed.";
+    } else {
+      builtinEl.textContent = "Built-in AI ships with the Windows app. Demo mode works everywhere else.";
+    }
+  }
+  const ollamaEl = $("#onboarding-ollama-status");
   if (info.ollama_available && info.ollama_model_ready) {
     ollamaEl.textContent = "Ollama detected — local AI is ready!";
   } else if (info.ollama_available) {
@@ -1173,6 +1435,10 @@ $("#onboarding-done")?.addEventListener("click", async () => {
     body: JSON.stringify({ provider: state.savedProvider || "auto", onboarding_completed: true }),
   });
   $("#onboarding-dialog").close();
+  setMode("project");
+  const side = projectTemplates.find((t) => t.id === "side-project");
+  if (side) startTemplate(side);
+  else renderTemplates();
 });
 
 document.querySelectorAll(".settings-tab").forEach((tab) => {
@@ -1187,6 +1453,7 @@ document.querySelectorAll(".settings-tab").forEach((tab) => {
 $("#settings-btn")?.addEventListener("click", async () => {
   const s = await loadAppSettings();
   fillSettingsForm(s);
+  await loadBundledSettings();
   await loadBrainSettings();
   await loadHealthDashboard();
   await checkUpdates(true);
@@ -1227,6 +1494,15 @@ settingsForm?.addEventListener("submit", async (e) => {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+  });
+  await fetch("/api/bundled/settings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      bundled_model_tier: selectedModelTier,
+      bundled_threads: Number(bundledThreads?.value || 0),
+      bundled_gpu_layers: Number(bundledGpuLayers?.value ?? -1),
+    }),
   });
   const brainTab = document.querySelector('.settings-panel[data-panel="brain"]');
   if (brainTab?.classList.contains("active")) {
@@ -1313,6 +1589,9 @@ async function boot() {
     await loadWorkspaces();
     setSplashStatus("Loading agents…");
     await loadPersonas();
+    await loadTemplates();
+    renderTemplates();
+    await loadGallery();
     await loadProjects();
     await loadDocs();
     await loadBrainSettings();

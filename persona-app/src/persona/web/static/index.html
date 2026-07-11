@@ -72,6 +72,16 @@
         <h2 class="panel-title">Agents</h2>
         <p class="panel-hint" id="mode-hint">Select an agent for one-on-one chat.</p>
         <div class="persona-grid" id="persona-grid"></div>
+        <section class="packs-panel" id="packs-panel">
+          <h3>Agent packs</h3>
+          <p class="panel-hint">Import curated teams or share your own as YAML.</p>
+          <ul class="gallery-list" id="gallery-list"></ul>
+          <button type="button" class="text-btn" id="export-pack-btn">Export my agents</button>
+          <label class="upload-btn">
+            Import pack file
+            <input type="file" id="pack-import" accept=".yaml,.yml" hidden />
+          </label>
+        </section>
         <section class="docs-panel" id="docs-panel">
           <h3>Knowledge base</h3>
           <p class="panel-hint">Upload policies, specs, or notes for agents to search.</p>
@@ -106,10 +116,10 @@
           <div id="brain-banner" class="status-banner brain-warn" hidden></div>
           <div id="status-banner" class="status-banner" hidden></div>
           <div id="update-banner" class="status-banner update" hidden></div>
-          <div class="welcome-bubble">
-            <h3>Welcome to Persona</h3>
-            <p>Start chatting immediately — demo mode works out of the box.</p>
-            <p>Select an agent, try Solo or Project mode, and connect a real LLM in Settings when ready.</p>
+          <div class="welcome-bubble" id="welcome-bubble">
+            <h3>What would you like to work on?</h3>
+            <p>Pick a template — Captain and the crew will plan it with you in Project mode.</p>
+            <div class="template-grid" id="template-grid"></div>
           </div>
         </div>
 
@@ -152,6 +162,10 @@
       <h3>Welcome to Persona</h3>
       <p class="panel-hint">Your local AI agent workspace — private, fast, and ready to use.</p>
       <div class="onboarding-steps">
+        <div class="onboarding-step" id="onboarding-builtin">
+          <strong>Built-in AI</strong>
+          <p id="onboarding-builtin-status">Checking built-in offline AI…</p>
+        </div>
         <div class="onboarding-step">
           <strong>Demo mode</strong>
           <p>Works instantly with no setup. Great for exploring agents and project workflows.</p>
@@ -185,18 +199,35 @@
         <label>Provider
           <select name="provider" id="provider-select">
             <option value="auto">Auto (recommended)</option>
+            <option value="bundled">Built-in AI — offline</option>
             <option value="demo">Demo — instant, no install</option>
-            <option value="ollama">Ollama — local</option>
+            <option value="ollama">Ollama — advanced local</option>
             <option value="openai">Cloud API — OpenAI compatible</option>
           </select>
         </label>
+        <p id="provider-status" class="panel-hint"></p>
+
+        <section id="bundled-settings" class="settings-section">
+          <h4>Built-in model</h4>
+          <p id="ram-status" class="panel-hint"></p>
+          <div id="model-tier-list" class="model-tier-list"></div>
+          <p id="download-status" class="panel-hint" hidden></p>
+          <label>CPU threads
+            <input type="number" id="bundled-threads" min="0" max="64" value="0" />
+            <span class="field-hint">0 = auto</span>
+          </label>
+          <label>GPU layers
+            <input type="number" id="bundled-gpu-layers" min="-1" max="999" value="-1" />
+            <span class="field-hint">-1 = auto, 0 = CPU only</span>
+          </label>
+        </section>
+
         <label>Ollama URL <input name="ollama_base_url" id="ollama-url" placeholder="http://localhost:11434" /></label>
         <label>Ollama model <input name="ollama_model" id="ollama-model" placeholder="llama3.2" list="ollama-models-list" /></label>
         <datalist id="ollama-models-list"></datalist>
         <label>API base URL <input name="openai_base_url" id="openai-url" placeholder="https://api.openai.com/v1" /></label>
         <label>API key <input name="openai_api_key" id="openai-key" type="password" placeholder="sk-… (leave blank to keep current)" autocomplete="off" /></label>
         <label>Cloud model <input name="openai_model" id="openai-model" placeholder="gpt-4o-mini" /></label>
-        <p id="provider-status" class="panel-hint"></p>
         <button type="button" class="text-btn" id="test-provider-btn">Test connection</button>
         <p id="test-result" class="test-result" hidden></p>
       </div>
