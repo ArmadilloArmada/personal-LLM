@@ -13,7 +13,9 @@
 
 1. Run **Persona-Setup.exe** — or download and unzip the portable folder
 2. Double-click **Persona.exe** (or **Run Persona.bat**)
-3. Use **Chat** and **Big Brain** tabs in the header
+3. Built-in AI loads on first start (~30 seconds)
+4. Use **Chat** and **Big Brain** tabs in the header
+5. Toggle the **speaker icon** for voice replies; use the **mic** for voice input
 
 Optional: **Create Desktop Shortcut.bat**
 
@@ -21,10 +23,11 @@ See [DOWNLOAD.md](DOWNLOAD.md) for troubleshooting.
 
 ## What you get
 
-- **Chat** — Solo, Group, Project, Board with built-in agents
+- **Built-in AI** — offline llama.cpp with Fast & Balanced models (v1.2.0+)
+- **Voices** — spoken agent replies and microphone input
 - **Big Brain** — Vault, graph, workflows, auto chat capture
-- **Demo mode** — instant, no API keys
-- **Ollama** — auto-detected local AI
+- **Chat** — Solo, Group, Project, Board with built-in agents
+- **Ollama / Cloud API** — optional upgrades in Settings
 - **Team workspaces**, knowledge base, custom agents
 
 ## Data location

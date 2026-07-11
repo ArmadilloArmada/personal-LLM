@@ -22,6 +22,7 @@ See [persona-app/DOWNLOAD.md](persona-app/DOWNLOAD.md) and [persona-app/windows/
 ## Features
 
 - **Built-in AI (Windows)** — llama.cpp + Fast & Balanced models in the zip; Quality model downloadable in Settings
+- **Voices** — spoken agent replies and microphone input (Edge/Chrome)
 - **Big Brain** — Obsidian-like vault, graph, workflows, automatic chat capture
 - **5 built-in agents** — Byte, Sunny, Nova, Sketch, Captain
 - **Agent packs** — curated YAML teams + export/import your own

@@ -22,6 +22,7 @@ Optional: run **Create Desktop Shortcut.bat** to pin Persona to your desktop.
 - **Big Brain** — vault, graph, workflows, chat capture
 - **5 built-in agents** — Byte, Sunny, Nova, Sketch, Captain
 - **Agent packs** — curated teams you can import from the sidebar
+- **Voice** — speaker icon for spoken replies; mic button for voice input
 
 ## Settings (inside the app)
 
